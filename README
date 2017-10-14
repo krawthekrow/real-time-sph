@@ -1,0 +1,1 @@
+Update of old implementation of the procedural terrain generation described in GPU Gems 3 Chapter 1. Development diverges to real time SPH implementation from this point onwards.
