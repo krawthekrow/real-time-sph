@@ -21,6 +21,7 @@ cuda_add_executable (main
     src/CameraController.cpp
     src/GameEngine.cpp
     src/ProcGenEngine.cpp
+    src/SphEngine.cpp
     src/CudaGlInterop.cpp
 )
 

@@ -21,13 +21,13 @@ void ProcGenEngine::Init() {
         TextureUtils::GenComputeTexture3D(gridSize);
 
     noiseGenShaderID =
-        ShaderManager::loadComputeShader(Shaders::COMP_NOISE3D);
+        ShaderManager::LoadComputeShader(Shaders::COMP_NOISE3D);
     glUseProgram(noiseGenShaderID);
     bindGenParams(noiseGenShaderID, chunkSize, chunkPos);
     glDispatchCompute(gridSize.x / 8, gridSize.y / 8, gridSize.z / 8);
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
-    primaryShaderID = ShaderManager::loadShaders(
+    primaryShaderID = ShaderManager::LoadShaders(
         Shaders::VERT_GRIDDER,
         Shaders::FRAG_SIMPLE,
         Shaders::GEOM_VOXELMESHER);

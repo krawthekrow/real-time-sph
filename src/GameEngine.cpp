@@ -30,6 +30,7 @@ void GameEngine::Init(GLFWwindow *_window) {
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
     procGenEngine.Init();
+    sphEngine.Init();
 
     GLint viewportParams[4];
     glGetIntegerv(GL_VIEWPORT, viewportParams);
@@ -41,9 +42,12 @@ void GameEngine::Init(GLFWwindow *_window) {
 void GameEngine::Update() {
     mat4 viewMatrix = camera.GetViewMatrix();
     mat4 modelMatrix = mat4(1.0f);
+    mat4 mvMatrix = viewMatrix * modelMatrix;
+    mat4 pMatrix = projectionMatrix;
     mat4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
-    procGenEngine.Update(mvpMatrix);
+    // procGenEngine.Update(mvpMatrix);
+    sphEngine.Update(mvMatrix, pMatrix);
 
     double currentTime = glfwGetTime();
     float timeStep = (float)(currentTime - prevTime);

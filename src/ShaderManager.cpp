@@ -8,6 +8,37 @@
 
 using namespace std;
 
+GLuint ShaderManager::LoadShaders(
+    const char *vertSrc, const char *fragSrc, const char *geomSrc) {
+    GLuint programID = glCreateProgram();
+    GLuint vertShaderID =
+        compileAndLinkShader(programID, GL_VERTEX_SHADER, vertSrc);
+    GLuint fragShaderID =
+        compileAndLinkShader(programID, GL_FRAGMENT_SHADER, fragSrc);
+    GLuint geomShaderID;
+    if (geomSrc != nullptr)
+        geomShaderID =
+            compileAndLinkShader(programID, GL_GEOMETRY_SHADER, geomSrc);
+
+    linkAndDebugProgram(programID);
+
+    detachAndDeleteShader(programID, vertShaderID);
+    detachAndDeleteShader(programID, fragShaderID);
+    if (geomSrc != nullptr)
+        detachAndDeleteShader(programID, geomShaderID);
+
+    return programID;
+}
+
+GLuint ShaderManager::LoadComputeShader(const char *compSrc) {
+    GLuint programID = glCreateProgram();
+    GLuint compShaderID =
+        compileAndLinkShader(programID, GL_COMPUTE_SHADER, compSrc);
+    linkAndDebugProgram(programID);
+    detachAndDeleteShader(programID, compShaderID);
+    return programID;
+}
+
 GLuint ShaderManager::compileShader(
     const GLenum shaderType, const char *shaderSrc) {
     GLuint shaderID = glCreateShader(shaderType);
@@ -57,35 +88,4 @@ void ShaderManager::linkAndDebugProgram(const GLuint programID) {
             programID, infoLogLength, nullptr, &errorMessage[0]);
         printf("%s\n", &errorMessage[0]);
     }
-}
-
-GLuint ShaderManager::loadShaders(
-    const char *vertSrc, const char *fragSrc, const char *geomSrc) {
-    GLuint programID = glCreateProgram();
-    GLuint vertShaderID =
-        compileAndLinkShader(programID, GL_VERTEX_SHADER, vertSrc);
-    GLuint fragShaderID =
-        compileAndLinkShader(programID, GL_FRAGMENT_SHADER, fragSrc);
-    GLuint geomShaderID;
-    if (geomSrc != nullptr)
-        geomShaderID =
-            compileAndLinkShader(programID, GL_GEOMETRY_SHADER, geomSrc);
-
-    linkAndDebugProgram(programID);
-
-    detachAndDeleteShader(programID, vertShaderID);
-    detachAndDeleteShader(programID, fragShaderID);
-    if (geomSrc != nullptr)
-        detachAndDeleteShader(programID, geomShaderID);
-
-    return programID;
-}
-
-GLuint ShaderManager::loadComputeShader(const char *compSrc) {
-    GLuint programID = glCreateProgram();
-    GLuint compShaderID =
-        compileAndLinkShader(programID, GL_COMPUTE_SHADER, compSrc);
-    linkAndDebugProgram(programID);
-    detachAndDeleteShader(programID, compShaderID);
-    return programID;
 }

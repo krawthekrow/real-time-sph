@@ -3,6 +3,13 @@
 #include <GL/glew.h>
 
 class ShaderManager {
+public:
+    static GLuint LoadShaders(
+        const char *vertSrc,
+        const char *fragSrc,
+        const char *geomSrc = nullptr);
+    static GLuint LoadComputeShader(const char *compSrc);
+
 private:
     static GLuint compileShader(
         const GLenum shaderType, const char *shaderSrc);
@@ -13,11 +20,4 @@ private:
     static void detachAndDeleteShader(
         const GLuint programID, const GLuint shaderID);
     static void linkAndDebugProgram(const GLuint programID);
-
-public:
-    static GLuint loadShaders(
-        const char *vertSrc,
-        const char *fragSrc,
-        const char *geomSrc = nullptr);
-    static GLuint loadComputeShader(const char *compSrc);
 };

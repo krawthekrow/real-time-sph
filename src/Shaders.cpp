@@ -24,3 +24,6 @@ const char *Shaders::FRAG_DONOTHING =
 const char *Shaders::GEOM_MAKEBILLBOARDS =
 #include "MakeBillboards.geom"
     ;
+const char *Shaders::FRAG_DRAWSPHERE =
+#include "DrawSphere.frag"
+    ;
