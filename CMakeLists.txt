@@ -22,6 +22,7 @@ cuda_add_executable (main
     src/GameEngine.cpp
     src/ProcGenEngine.cpp
     src/SphEngine.cpp
+    src/SphCuda.cu
     src/CudaGlInterop.cpp
 )
 
