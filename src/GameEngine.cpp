@@ -29,7 +29,7 @@ void GameEngine::Init(GLFWwindow *_window) {
 
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
-    procGenEngine.Init();
+    // procGenEngine.Init();
     sphEngine.Init();
 
     GLint viewportParams[4];

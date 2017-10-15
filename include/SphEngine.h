@@ -9,7 +9,7 @@ public:
     void Update(const mat4 mvMatrix, const mat4 pMatrix);
 
 private:
-    GLuint vao;
+    GLuint vao, vbo;
     GLuint shaderProgram;
     GLuint mvLocation, pLocation;
 };
