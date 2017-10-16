@@ -18,4 +18,5 @@ private:
     cudaGraphicsResource *vbo;
 
     vec3 *velocities;
+    vec3 *contactForces;
 };

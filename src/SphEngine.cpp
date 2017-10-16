@@ -11,7 +11,7 @@
 
 using namespace glm;
 
-const int NUM_PARTS = 100;
+const int NUM_PARTS = 3000;
 
 void SphEngine::Init() {
     minBound = vec3(0);
