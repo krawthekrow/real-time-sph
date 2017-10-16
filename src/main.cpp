@@ -16,7 +16,7 @@ void glfwErrorCallback(int error, const char *description) {
 
 void onWindowResize(
     GLFWwindow *window, const int width, const int height) {
-    glViewport(0, 0, width, height); 
+    glViewport(0, 0, width, height);
     gameEngine.SetViewportDimensions(width, height);
 }
 
@@ -60,6 +60,7 @@ int main() {
 
     // INIT GAME ENGINE
 
+    srand(588472); // Randomly chosen random seed for testing determinism
     gameEngine.Init(window);
 
     // GAME LOOP

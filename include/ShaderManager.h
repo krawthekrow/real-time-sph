@@ -6,7 +6,7 @@ class ShaderManager {
 public:
     static GLuint LoadShaders(
         const char *vertSrc,
-        const char *fragSrc,
+        const char *fragSrc = nullptr,
         const char *geomSrc = nullptr);
     static GLuint LoadComputeShader(const char *compSrc);
 

@@ -2,6 +2,7 @@
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/random.hpp>
 
 #include "ShaderManager.h"
 #include "Shaders.h"
@@ -10,17 +11,18 @@
 
 using namespace glm;
 
-const int NUM_PARTS = 10;
+const int NUM_PARTS = 100;
 
 void SphEngine::Init() {
+    minBound = vec3(0);
+    maxBound = vec3(100.0f);
 
     //SPH INIT
 
     shaderProgram = ShaderManager::LoadShaders(
         Shaders::VERT_DONOTHING,
         Shaders::FRAG_DRAWSPHERE,
-        Shaders::GEOM_MAKEBILLBOARDS
-    );
+        Shaders::GEOM_MAKEBILLBOARDS);
     glUseProgram(shaderProgram);
     mvLocation = glGetUniformLocation(shaderProgram, "MV");
     pLocation = glGetUniformLocation(shaderProgram, "P");
@@ -39,20 +41,25 @@ void SphEngine::Init() {
 
     GLfloat initPos[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
-        initPos[i * 3] = (GLfloat)i;
-        initPos[i * 3 + 1] = 0.0f;
-        initPos[i * 3 + 2] = 0.0f;
+        vec3 pos = linearRand(minBound, maxBound);
+        initPos[i * 3] = pos.x;
+        initPos[i * 3 + 1] = pos.y;
+        initPos[i * 3 + 2] = pos.z;
     }
     glBufferData(
         GL_ARRAY_BUFFER, sizeof(initPos), initPos, GL_DYNAMIC_DRAW);
     sphCuda.Init(NUM_PARTS, vbo);
 
+    vec3 *velocities = sphCuda.GetVelocitiesPtr();
+    for (int i = 0; i < NUM_PARTS; i++) {
+        velocities[i] = linearRand(vec3(-0.01f), vec3(0.01f));
+    }
+
     // BOUNDING BOX INIT
 
     bbProgram = ShaderManager::LoadShaders(
         Shaders::VERT_TRANSFORMPOINTS,
-        Shaders::FRAG_DONOTHING
-    );
+        Shaders::FRAG_DONOTHING);
     glUseProgram(bbProgram);
 
     bbMvpLocation = glGetUniformLocation(bbProgram, "MVP");
@@ -67,9 +74,6 @@ void SphEngine::Init() {
     glBindBuffer(GL_ARRAY_BUFFER, bbVbo);
     glVertexAttribPointer(
         bbPosModelSpaceLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    minBound = ivec3(0);
-    maxBound = ivec3(100.0f);
 
     // 12 line segments each defined by 2 vec3s
     float bbLineVerts[2 * 3 * 12];
@@ -104,7 +108,7 @@ void SphEngine::Update(const mat4 mvMatrix, const mat4 pMatrix) {
     glUniformMatrix4fv(mvLocation, 1, GL_FALSE, &mvMatrix[0][0]);
     glUniformMatrix4fv(pLocation, 1, GL_FALSE, &pMatrix[0][0]);
     glBindVertexArray(vao);
-    glDrawArrays(GL_POINTS, 0, 4);
+    glDrawArrays(GL_POINTS, 0, NUM_PARTS);
 
     glUseProgram(bbProgram);
     const mat4 mvpMatrix = pMatrix * mvMatrix;

@@ -13,8 +13,10 @@ GLuint ShaderManager::LoadShaders(
     GLuint programID = glCreateProgram();
     GLuint vertShaderID =
         compileAndLinkShader(programID, GL_VERTEX_SHADER, vertSrc);
-    GLuint fragShaderID =
-        compileAndLinkShader(programID, GL_FRAGMENT_SHADER, fragSrc);
+    GLuint fragShaderID;
+    if (fragSrc != nullptr)
+        fragShaderID =
+            compileAndLinkShader(programID, GL_FRAGMENT_SHADER, fragSrc);
     GLuint geomShaderID;
     if (geomSrc != nullptr)
         geomShaderID =
@@ -23,7 +25,8 @@ GLuint ShaderManager::LoadShaders(
     linkAndDebugProgram(programID);
 
     detachAndDeleteShader(programID, vertShaderID);
-    detachAndDeleteShader(programID, fragShaderID);
+    if (fragSrc != nullptr)
+        detachAndDeleteShader(programID, fragShaderID);
     if (geomSrc != nullptr)
         detachAndDeleteShader(programID, geomShaderID);
 

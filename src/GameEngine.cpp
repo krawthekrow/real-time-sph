@@ -18,7 +18,7 @@ using namespace glm;
 static const double PI = acos(-1);
 
 GameEngine::GameEngine()
-    : camera(vec3(0, 0, -100), 0, PI),
+    : camera(vec3(50.0f, 50.0f, -100.0f), 0, PI),
       mouseTogglePressed(false) {}
 
 void GameEngine::Init(GLFWwindow *_window) {

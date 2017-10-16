@@ -21,5 +21,5 @@ private:
 
     SphCuda sphCuda;
 
-    ivec3 minBound, maxBound;
+    vec3 minBound, maxBound;
 };

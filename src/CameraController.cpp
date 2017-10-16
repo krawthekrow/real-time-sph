@@ -1,8 +1,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-#include "GlfwUtils.h"
 #include "Camera.h"
+#include "GlfwUtils.h"
 
 #include "CameraController.h"
 
