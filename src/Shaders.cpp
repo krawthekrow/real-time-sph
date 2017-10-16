@@ -27,3 +27,6 @@ const char *Shaders::GEOM_MAKEBILLBOARDS =
 const char *Shaders::FRAG_DRAWSPHERE =
 #include "DrawSphere.frag"
     ;
+const char *Shaders::VERT_TRANSFORMPOINTS =
+#include "TransformPoints.vert"
+    ;

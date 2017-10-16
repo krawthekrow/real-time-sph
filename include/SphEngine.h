@@ -15,5 +15,11 @@ private:
     GLuint shaderProgram;
     GLuint mvLocation, pLocation;
 
+    GLuint bbVao, bbVbo;
+    GLuint bbProgram;
+    GLuint bbMvpLocation;
+
     SphCuda sphCuda;
+
+    ivec3 minBound, maxBound;
 };

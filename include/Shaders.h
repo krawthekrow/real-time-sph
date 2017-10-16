@@ -11,4 +11,5 @@ public:
     static const char *FRAG_DONOTHING;
     static const char *GEOM_MAKEBILLBOARDS;
     static const char *FRAG_DRAWSPHERE;
+    static const char *VERT_TRANSFORMPOINTS;
 };

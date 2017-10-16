@@ -11,7 +11,7 @@ out vec4 posCameraSpace;
 void main(){
     vec4 posModelSpace = gl_in[0].gl_Position;
     posModelSpace.xyz *= 2.0f;
-    posModelSpace.xyz += vec3(0.0f, 50.0f, 0.0f);
+    posModelSpace.xyz += vec3(0.0f, 0.0f, 0.0f);
     vec4 centerCameraSpace = MV * posModelSpace;
     float SIZE = 2;
 
