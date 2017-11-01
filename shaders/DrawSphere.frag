@@ -8,7 +8,7 @@ in vec4 posCameraSpace;
 out vec4 color;
 
 void main(){
-    float SIZE = 3;
+    float SIZE = 2;
 
     float rSq = dot(posBillboardSpace.xy, posBillboardSpace.xy);
     float perpAdjustSq = SIZE * SIZE - rSq;

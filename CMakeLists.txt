@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 3.1)
 project (Experiments)
-set (CMAKE_CXX_STANDARD 11)
+# set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_FLAGS "--std=c++11")
 set (CMAKE_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 set (EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set (LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
@@ -19,11 +20,11 @@ cuda_add_executable (main
     src/FpsCounter.cpp
     src/Shaders.cpp
     src/CameraController.cpp
+    src/CudaUtils.cpp
     src/GameEngine.cpp
     src/ProcGenEngine.cpp
     src/SphEngine.cpp
     src/SphCuda.cu
-    src/CudaGlInterop.cpp
 )
 
 find_package (PkgConfig REQUIRED)

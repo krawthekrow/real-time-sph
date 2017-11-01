@@ -9,7 +9,7 @@ out vec2 posBillboardSpace;
 out vec4 posCameraSpace;
 
 vec4 centerCameraSpace;
-float SIZE = 3;
+float SIZE = 2;
 
 void emitRelPos(vec2 _posBillboardSpace){
     posBillboardSpace = _posBillboardSpace;
@@ -26,7 +26,6 @@ void main(){
     emitRelPos(vec2(-SIZE, -SIZE));
     emitRelPos(vec2(SIZE, SIZE));
     emitRelPos(vec2(SIZE, -SIZE));
-    
     EndPrimitive();
 }
 )RAWSTR"

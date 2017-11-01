@@ -37,8 +37,8 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     GLFWwindow *window =
-        glfwCreateWindow(1024, 782, "Experiment", nullptr, nullptr);
-    if (window == nullptr) {
+        glfwCreateWindow(1024, 782, "Experiment", NULL, NULL);
+    if (window == NULL) {
         fprintf(stderr, "Failed to open GLFW window.\n");
         glfwTerminate();
         return -1;

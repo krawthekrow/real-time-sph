@@ -23,7 +23,7 @@ GLuint TextureUtils::GenComputeTexture2D(const ivec2 texSize) {
         0,
         GL_RED,
         GL_FLOAT,
-        nullptr);
+        NULL);
 
     glBindImageTexture(0, texID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
@@ -48,7 +48,7 @@ GLuint TextureUtils::GenComputeTexture3D(const ivec3 texSize) {
         0,
         GL_RED,
         GL_FLOAT,
-        nullptr);
+        NULL);
 
     glBindImageTexture(0, texID, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
 

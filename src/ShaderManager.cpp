@@ -14,20 +14,20 @@ GLuint ShaderManager::LoadShaders(
     GLuint vertShaderID =
         compileAndLinkShader(programID, GL_VERTEX_SHADER, vertSrc);
     GLuint fragShaderID;
-    if (fragSrc != nullptr)
+    if (fragSrc != NULL)
         fragShaderID =
             compileAndLinkShader(programID, GL_FRAGMENT_SHADER, fragSrc);
     GLuint geomShaderID;
-    if (geomSrc != nullptr)
+    if (geomSrc != NULL)
         geomShaderID =
             compileAndLinkShader(programID, GL_GEOMETRY_SHADER, geomSrc);
 
     linkAndDebugProgram(programID);
 
     detachAndDeleteShader(programID, vertShaderID);
-    if (fragSrc != nullptr)
+    if (fragSrc != NULL)
         detachAndDeleteShader(programID, fragShaderID);
-    if (geomSrc != nullptr)
+    if (geomSrc != NULL)
         detachAndDeleteShader(programID, geomShaderID);
 
     return programID;
@@ -45,7 +45,7 @@ GLuint ShaderManager::LoadComputeShader(const char *compSrc) {
 GLuint ShaderManager::compileShader(
     const GLenum shaderType, const char *shaderSrc) {
     GLuint shaderID = glCreateShader(shaderType);
-    glShaderSource(shaderID, 1, &shaderSrc, nullptr);
+    glShaderSource(shaderID, 1, &shaderSrc, NULL);
     glCompileShader(shaderID);
 
     GLint result = GL_FALSE;
@@ -56,7 +56,7 @@ GLuint ShaderManager::compileShader(
     if (infoLogLength > 0) {
         vector<char> errorMessage(infoLogLength + 1);
         glGetShaderInfoLog(
-            shaderID, infoLogLength, nullptr, &errorMessage[0]);
+            shaderID, infoLogLength, NULL, &errorMessage[0]);
         fprintf(stderr, "%s\n", &errorMessage[0]);
     }
     return shaderID;
@@ -88,7 +88,7 @@ void ShaderManager::linkAndDebugProgram(const GLuint programID) {
     if (infoLogLength > 0) {
         vector<char> errorMessage(infoLogLength + 1);
         glGetProgramInfoLog(
-            programID, infoLogLength, nullptr, &errorMessage[0]);
+            programID, infoLogLength, NULL, &errorMessage[0]);
         printf("%s\n", &errorMessage[0]);
     }
 }

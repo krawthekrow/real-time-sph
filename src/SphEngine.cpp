@@ -15,7 +15,7 @@ const int NUM_PARTS = 3000;
 
 void SphEngine::Init() {
     minBound = vec3(0);
-    maxBound = vec3(100.0f);
+    maxBound = vec3(50.0f);
 
     //SPH INIT
 
@@ -41,14 +41,15 @@ void SphEngine::Init() {
 
     GLfloat initPos[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
-        vec3 pos = linearRand(minBound, maxBound);
+        // vec3 pos = linearRand(minBound, maxBound);
+        vec3 pos = linearRand(minBound, vec3(maxBound.x / 8.0, maxBound.y, maxBound.z));
         initPos[i * 3] = pos.x;
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
     }
     glBufferData(
         GL_ARRAY_BUFFER, sizeof(initPos), initPos, GL_DYNAMIC_DRAW);
-    sphCuda.Init(NUM_PARTS, vbo);
+    sphCuda.Init(NUM_PARTS, vbo, &minBound, &maxBound);
 
     vec3 *velocities = sphCuda.GetVelocitiesPtr();
     for (int i = 0; i < NUM_PARTS; i++) {
