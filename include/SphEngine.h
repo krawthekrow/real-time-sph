@@ -9,11 +9,13 @@ class SphEngine {
 public:
     void Init();
     void Update(const mat4 mvMatrix, const mat4 pMatrix);
+    void IncDrawLimitZ(const float inc);
 
 private:
     GLuint vao, vbo;
     GLuint shaderProgram;
     GLuint mvLocation, pLocation;
+    GLuint drawLimitZLocation;
 
     GLuint bbVao, bbVbo;
     GLuint bbProgram;
@@ -22,4 +24,5 @@ private:
     SphCuda sphCuda;
 
     vec3 minBound, maxBound;
+    float drawLimitZ;
 };

@@ -69,6 +69,10 @@ void GameEngine::Update() {
             }
             mouseTogglePressed = true;
         }
+    } else if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_R)) {
+        sphEngine.IncDrawLimitZ(-0.5f);
+    } else if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_T)) {
+        sphEngine.IncDrawLimitZ(0.5f);
     } else {
         mouseTogglePressed = false;
     }

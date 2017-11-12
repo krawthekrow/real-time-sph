@@ -3,6 +3,7 @@ R"RAWSTR(
 
 uniform mat4 MV;
 uniform mat4 P;
+uniform float drawLimitZ;
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 out vec2 posBillboardSpace;
@@ -20,6 +21,7 @@ void emitRelPos(vec2 _posBillboardSpace){
 
 void main(){
     vec4 posModelSpace = gl_in[0].gl_Position;
+    if(posModelSpace.z < drawLimitZ) return;
     centerCameraSpace = MV * posModelSpace;
 
     emitRelPos(vec2(-SIZE, SIZE));

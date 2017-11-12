@@ -17,6 +17,8 @@ void SphEngine::Init() {
     minBound = vec3(0);
     maxBound = vec3(50.0f);
 
+    drawLimitZ = 0.0f;
+
     //SPH INIT
 
     shaderProgram = ShaderManager::LoadShaders(
@@ -26,6 +28,8 @@ void SphEngine::Init() {
     glUseProgram(shaderProgram);
     mvLocation = glGetUniformLocation(shaderProgram, "MV");
     pLocation = glGetUniformLocation(shaderProgram, "P");
+    drawLimitZLocation =
+        glGetUniformLocation(shaderProgram, "drawLimitZ");
 
     GLuint posModelSpaceLocation =
         glGetAttribLocation(shaderProgram, "posModelSpace");
@@ -42,7 +46,7 @@ void SphEngine::Init() {
     GLfloat initPos[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
         // vec3 pos = linearRand(minBound, maxBound);
-        vec3 pos = linearRand(minBound, vec3(maxBound.x / 8.0, maxBound.y, maxBound.z));
+        vec3 pos = linearRand(minBound, vec3(maxBound.x / 2.0, maxBound.y, maxBound.z));
         initPos[i * 3] = pos.x;
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
@@ -108,6 +112,7 @@ void SphEngine::Update(const mat4 mvMatrix, const mat4 pMatrix) {
     glUseProgram(shaderProgram);
     glUniformMatrix4fv(mvLocation, 1, GL_FALSE, &mvMatrix[0][0]);
     glUniformMatrix4fv(pLocation, 1, GL_FALSE, &pMatrix[0][0]);
+    glUniform1f(drawLimitZLocation, drawLimitZ);
     glBindVertexArray(vao);
     glDrawArrays(GL_POINTS, 0, NUM_PARTS);
 
@@ -117,4 +122,10 @@ void SphEngine::Update(const mat4 mvMatrix, const mat4 pMatrix) {
     glBindVertexArray(bbVao);
     // 12 line segments defined by 2 points each
     glDrawArrays(GL_LINES, 0, 2 * 12);
+}
+
+void SphEngine::IncDrawLimitZ(const float inc) {
+    drawLimitZ += inc;
+    if (drawLimitZ < minBound.z) drawLimitZ = minBound.z;
+    if (drawLimitZ > maxBound.z) drawLimitZ = maxBound.z;
 }

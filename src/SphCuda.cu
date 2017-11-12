@@ -33,7 +33,8 @@ using namespace glm;
 
 #define GRAVITY -0.0004f // -0.0001f
 #define DRAG 0.001f // 0.001f
-#define ELASTICITY 0.1f // 0.5f
+#define COLLISION_DRAG 0.00001f
+#define ELASTICITY 0.5f // 0.5f
 // Particle size (for physics) squared
 #define PART_SIZE_2 1.0f // 10.0f
 #define COLLISION_FORCE 0.005f // 0.001f
@@ -174,7 +175,7 @@ void findCollisions(
 
 __global__
 void computeContactForces(
-    int numParts, vec3 *pos,
+    int numParts, vec3 *pos, vec3 *v,
     int maxNumCollisions, int *collisionChunkEnds, int *collisions,
     vec3 *contactForces, curandState_t *randStates) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
@@ -182,17 +183,46 @@ void computeContactForces(
     for (int i = offset; i < numParts; i += stride) {
         int chunkStart = (i == 0) ? 0 : collisionChunkEnds[i - 1];
         int chunkEnd = collisionChunkEnds[i];
-        contactForces[i] = vec3(0.0f);
+
+        // float density = 0.0f;
+        // vec3 ddensity(0.0f);
+        // for (int j = chunkStart; j < chunkEnd; j++) {
+        //     if (j >= maxNumCollisions) break;
+        //     vec3 relPos = pos[i] - pos[collisions[j]];
+        //     float dist2 = dot(relPos, relPos);
+        //     if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE) {
+        //         density += exp(-dist2 / (PART_SIZE_2 * 1.0f));
+        //         // density += exp(-sqrt(dist2 / (PART_SIZE_2 * 1.0f)));
+        //         ddensity += relPos * density;
+        //     }
+        // }
+        // contactForces[i] = COLLISION_FORCE *
+        //     (density + 0.1f) * ddensity * 0.001f;
+
+        vec3 contactForce(0.0f);
         for (int j = chunkStart; j < chunkEnd; j++) {
             if (j >= maxNumCollisions) break;
             vec3 relPos = pos[i] - pos[collisions[j]];
             float dist2 = dot(relPos, relPos);
-            if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE)
-                contactForces[i] +=
+            if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE / 4.0f) {
+                float normdist2 = dist2 / PART_SIZE_2;
+                // contactForce +=
+                //     relPos * (1.0f - normdist2 / 1.5f +
+                //     normdist2 * normdist2 / 9.5f
+                //     ) *
+                //     COLLISION_FORCE;
+                vec3 currForce =
                     // relPos * (1 - dist2 / PART_SIZE_2) *
-                    relPos * exp(-dist2 / PART_SIZE_2) *
+                    relPos * exp(-normdist2) *
                     COLLISION_FORCE;
+                contactForce += currForce;
+                static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
+                // contactForce += -1.0f / forceScale * DRAG * abs(dot(v[i], currForce)) / length(v[i]) * v[i];
+                contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * COLLISION_DRAG;
+            }
         }
+        contactForces[i] = contactForce;
+
         // contactForces[firstPart] += (vec3(
         //     curand_uniform(&randStates[firstPart]),
         //     curand_uniform(&randStates[firstPart]),
@@ -311,8 +341,11 @@ void computeAccel(
     int numParts, vec3 *pos, vec3 *v, vec3 *contactForces, vec3 *accel) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
+    // static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
     for (int i = offset; i < numParts; i += stride) {
-        accel[i] = - DRAG * v[i] + contactForces[i];
+        vec3 contactForce = contactForces[i];
+        // accel[i] = - max(min(DRAG, DRAG * length(contactForce) / forceScale), DRAG / 2.0f) * v[i] + contactForce;
+        accel[i] = - DRAG * v[i] + contactForce;
         accel[i].y += GRAVITY;
     }
 }
@@ -336,18 +369,19 @@ void advanceState(
 
 __global__
 void enforceBoundary(
-    int numParts, vec3 minBound, vec3 maxBound, vec3 *pos, vec3 *v) {
+    int numParts, vec3 minBound, vec3 maxBound, vec3 *pos, vec3 *v,
+    curandState_t *randStates) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
         // float vmag = length(v[i]);
         // float VLIMIT = 0.1f;
         // if (vmag > VLIMIT) v[i] = v[i] / vmag * VLIMIT;
-        // v[i] += (vec3(
+        // pos[i] += (vec3(
         //     curand_uniform(&randStates[i]),
         //     curand_uniform(&randStates[i]),
         //     curand_uniform(&randStates[i])
-        // ) - 0.5f) * 0.001f;
+        // ) - 0.5f) * 0.01f;
         if (pos[i].x < minBound.x) {
             pos[i].x = 2.0f * minBound.x - pos[i].x;
             v[i].x *= -ELASTICITY;
@@ -372,14 +406,14 @@ void enforceBoundary(
             pos[i].z = 2.0f * maxBound.z - pos[i].z;
             v[i].z *= -ELASTICITY;
         }
-        // vec3 minBoundDist = pos[i] - minBound;
-        // v[i] += vec3(lessThan(minBoundDist, vec3(CELL_SIZE))) *
-        //     exp(-minBoundDist * minBoundDist / PART_SIZE_2) *
-        //     COLLISION_FORCE;
-        // vec3 maxBoundDist = maxBound - pos[i];
-        // v[i] -= vec3(lessThan(maxBoundDist, vec3(CELL_SIZE))) *
-        //     exp(-maxBoundDist * maxBoundDist / PART_SIZE_2) *
-        //     COLLISION_FORCE;
+        vec3 minBoundDist = pos[i] - minBound;
+        v[i] += vec3(lessThan(minBoundDist, vec3(CELL_SIZE))) *
+            exp(-minBoundDist * minBoundDist / PART_SIZE_2) *
+            COLLISION_FORCE;
+        vec3 maxBoundDist = maxBound - pos[i];
+        v[i] -= vec3(lessThan(maxBoundDist, vec3(CELL_SIZE))) *
+            exp(-maxBoundDist * maxBoundDist / PART_SIZE_2) *
+            COLLISION_FORCE;
     }
 }
 
@@ -454,7 +488,7 @@ void SphCuda::Init(
     cudaMalloc(&numCollisions, numParts * sizeof(int));
     cudaMalloc(&collisionChunkEnds, numParts * sizeof(int));
     // Assume each particle has a max valency of 16
-    maxNumCollisions = 32 * numParts;
+    maxNumCollisions = 64 * numParts;
     cudaMallocManaged(&collisions, maxNumCollisions * sizeof(int));
 
     numCollisionsPtr = thrust::device_pointer_cast(numCollisions);
@@ -522,19 +556,25 @@ void SphCuda::Update() {
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
     computeAccelRK(rk1p, rk1v, rk1dv);
-    // advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
-    // computeAccelRK(rk2p, rk2v, rk2dv);
-    // advanceStateRK(pos, velocities, 0.5f, rk2v, rk2dv, rk3p, rk3v);
-    // computeAccelRK(rk3p, rk3v, rk3dv);
-    // advanceStateRK(pos, velocities, 1.0f, rk3v, rk3dv, rk4p, rk4v);
-    // computeAccelRK(rk4p, rk4v, rk4dv);
-    // advanceState<<<numBlocksParts, blockSize>>>(
-    //     numParts, pos, velocities,
-    //     rk1v, rk1dv, rk2v, rk2dv, rk3v, rk3dv, rk4v, rk4dv);
-    advanceStateRK(pos, velocities, 1.0f, rk1v, rk1dv, pos, velocities);
+
+    const static bool USE_RK4 = false;
+
+    if (USE_RK4) {
+        advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
+        computeAccelRK(rk2p, rk2v, rk2dv);
+        advanceStateRK(pos, velocities, 0.5f, rk2v, rk2dv, rk3p, rk3v);
+        computeAccelRK(rk3p, rk3v, rk3dv);
+        advanceStateRK(pos, velocities, 1.0f, rk3v, rk3dv, rk4p, rk4v);
+        computeAccelRK(rk4p, rk4v, rk4dv);
+        advanceState<<<numBlocksParts, blockSize>>>(
+            numParts, pos, velocities,
+            rk1v, rk1dv, rk2v, rk2dv, rk3v, rk3dv, rk4v, rk4dv);
+    } else {
+        advanceStateRK(pos, velocities, 1.0f, rk1v, rk1dv, pos, velocities);
+    }
 
     enforceBoundary<<<numBlocksParts, blockSize>>>(
-        numParts, minBound, maxBound, pos, velocities);
+        numParts, minBound, maxBound, pos, velocities, randStates);
     // update<<<numBlocksParts, blockSize>>>(
     //     numParts, minBound, maxBound,
     //     pos, velocities, contactForces, randStates);
@@ -547,7 +587,7 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 void SphCuda::computeAccelRK(
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel) {
     computeContactForces<<<numBlocksParts, blockSize>>>(
-        numParts, currPos,
+        numParts, currPos, currVel,
         maxNumCollisions, collisionChunkEnds, collisions,
         contactForces, randStates);
     computeAccel<<<numBlocksParts, blockSize>>>(
