@@ -18,9 +18,9 @@ public:
 
     ~SphCuda();
     void Init(
-        const int _numParts, const GLuint vboGl,
-        const vec3 *_minBound, const vec3 *_maxBound);
-    void Update();
+        const int &_numParts, const GLuint &vboGl,
+        const vec3 &_minBound, const vec3 &_maxBound);
+    void Update(const double &currTime, const float &rotAmt);
     vec3 *GetVelocitiesPtr();
 
 private:
@@ -49,11 +49,20 @@ private:
 
     int maxNumCollisions;
     int *numCollisions;
+    int *collisionChunkStarts;
     int *collisionChunkEnds;
     int *collisions;
+    int *homeChunks;
+    bool *shouldCopyCollision;
+    int *cellTouchPartIds;
 
     thrust::device_ptr<int> numCollisionsPtr;
+    thrust::device_ptr<int> collisionChunkStartsPtr;
     thrust::device_ptr<int> collisionChunkEndsPtr;
+    thrust::device_ptr<int> collisionsPtr;
+    thrust::device_ptr<int> homeChunksPtr;
+    thrust::device_ptr<bool> shouldCopyCollisionPtr;
+    thrust::device_ptr<int> cellTouchPartIdsPtr;
 
     vec3 *rk1dv;
     vec3 *rk2p, *rk2v, *rk2dv;
@@ -63,7 +72,8 @@ private:
     curandState_t *randStates;
 
     void computeAccelRK(
-        vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel);
+        vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel,
+        const double &t, const float &rotAmt);
     void advanceStateRK(
         vec3 *const currPos, vec3 *const currVel, const float timeStep,
         vec3 *const dpos, vec3 *const dvel,

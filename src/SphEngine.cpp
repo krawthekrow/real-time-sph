@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/random.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "ShaderManager.h"
 #include "Shaders.h"
@@ -12,12 +13,13 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
+const float ROT_RATE = 10.0f;
 
 void SphEngine::Init() {
-    minBound = vec3(0);
-    maxBound = vec3(50.0f);
+    minBound = vec3(-25.0f);
+    maxBound = vec3(25.0f);
 
-    drawLimitZ = 0.0f;
+    drawLimitZ = minBound.z;
 
     //SPH INIT
 
@@ -46,14 +48,15 @@ void SphEngine::Init() {
     GLfloat initPos[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
         // vec3 pos = linearRand(minBound, maxBound);
-        vec3 pos = linearRand(minBound, vec3(maxBound.x / 2.0, maxBound.y, maxBound.z));
+        vec3 dims = maxBound - minBound;
+        vec3 pos = linearRand(minBound, vec3(minBound.x + dims.x / 2.0f, maxBound.y, maxBound.z));
         initPos[i * 3] = pos.x;
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
     }
     glBufferData(
         GL_ARRAY_BUFFER, sizeof(initPos), initPos, GL_DYNAMIC_DRAW);
-    sphCuda.Init(NUM_PARTS, vbo, &minBound, &maxBound);
+    sphCuda.Init(NUM_PARTS, vbo, minBound, maxBound);
 
     vec3 *velocities = sphCuda.GetVelocitiesPtr();
     for (int i = 0; i < NUM_PARTS; i++) {
@@ -106,18 +109,23 @@ void SphEngine::Init() {
         GL_ARRAY_BUFFER, sizeof(bbLineVerts), bbLineVerts, GL_STATIC_DRAW);
 }
 
-void SphEngine::Update(const mat4 mvMatrix, const mat4 pMatrix) {
-    sphCuda.Update();
+void SphEngine::Update(const mat4 &mvMatrix, const mat4 &pMatrix,
+    const double &currTime) {
+    const float rotAmt = currTime / ROT_RATE;
+    sphCuda.Update(currTime, rotAmt);
+
+    mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
+    mat4 rotMvMatrix = mvMatrix * rot;
+    const mat4 mvpMatrix = pMatrix * rotMvMatrix;
 
     glUseProgram(shaderProgram);
-    glUniformMatrix4fv(mvLocation, 1, GL_FALSE, &mvMatrix[0][0]);
+    glUniformMatrix4fv(mvLocation, 1, GL_FALSE, &rotMvMatrix[0][0]);
     glUniformMatrix4fv(pLocation, 1, GL_FALSE, &pMatrix[0][0]);
     glUniform1f(drawLimitZLocation, drawLimitZ);
     glBindVertexArray(vao);
     glDrawArrays(GL_POINTS, 0, NUM_PARTS);
 
     glUseProgram(bbProgram);
-    const mat4 mvpMatrix = pMatrix * mvMatrix;
     glUniformMatrix4fv(bbMvpLocation, 1, GL_FALSE, &mvpMatrix[0][0]);
     glBindVertexArray(bbVao);
     // 12 line segments defined by 2 points each
