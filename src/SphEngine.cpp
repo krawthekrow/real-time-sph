@@ -13,7 +13,7 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 10.0f;
+const float ROT_RATE = 1000.0f;
 
 void SphEngine::Init() {
     minBound = vec3(-25.0f);

@@ -32,10 +32,10 @@ using namespace glm;
 #define Z_OFFSET 0
 #define BAD_CELL -1
 
-#define GRAVITY -0.0004f // -0.0001f
-#define DRAG 0.001f // 0.001f
+#define GRAVITY -0.0005f // -0.0001f
+#define DRAG 0.0001f // 0.001f
 #define COLLISION_DRAG 0.00001f
-#define ELASTICITY 0.5f // 0.5f
+#define ELASTICITY 0.8f // 0.5f
 // Particle size (for physics) squared
 #define PART_SIZE_2 1.0f // 10.0f
 #define COLLISION_FORCE 0.005f // 0.001f
@@ -254,7 +254,7 @@ void computeContactForces(
                 contactForce += currForce;
                 static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
                 // contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * COLLISION_DRAG;
-                contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / length(currForce) * 2000.0f * COLLISION_DRAG;
+                contactForce += -1.0f / forceScale * dot(v[i] - v[collisions[j]], currForce) * currForce / length(currForce) * 2000.0f * COLLISION_DRAG;
             }
         }
         contactForces[i] = contactForce;
