@@ -6,16 +6,12 @@
 #include <curand_kernel.h>
 
 #include <thrust/device_ptr.h>
+#include <thrust/iterator/zip_iterator.h>
 
 using namespace glm;
 
 class SphCuda {
 public:
-    struct CellTouch {
-        int hash;
-        int partInfo; // (id << 1) | (IS_HOME_CELL)
-    };
-
     ~SphCuda();
     void Init(
         const int &_numParts, const GLuint &vboGl,
@@ -37,15 +33,16 @@ private:
     vec3 *velocities;
     vec3 *contactForces;
 
-    CellTouch *cellTouchesSparse;
-    CellTouch *cellTouches;
-    int *chunkEndsSparse;
+    int *cellTouchHashes;
+    int *cellTouchPartIds;
     int *chunkEnds;
 
-    thrust::device_ptr<CellTouch> cellTouchesSparsePtr;
-    thrust::device_ptr<CellTouch> cellTouchesPtr;
-    thrust::device_ptr<int> chunkEndsSparsePtr;
+    thrust::device_ptr<int> cellTouchHashesPtr;
+    thrust::device_ptr<int> cellTouchPartIdsPtr;
     thrust::device_ptr<int> chunkEndsPtr;
+    thrust::zip_iterator<thrust::tuple<
+        thrust::device_ptr<int>,
+        thrust::device_ptr<int>>> cellTouchesPtr;
 
     int maxNumCollisions;
     int *numCollisions;
@@ -54,7 +51,6 @@ private:
     int *collisions;
     int *homeChunks;
     bool *shouldCopyCollision;
-    int *cellTouchPartIds;
 
     thrust::device_ptr<int> numCollisionsPtr;
     thrust::device_ptr<int> collisionChunkStartsPtr;
@@ -62,7 +58,6 @@ private:
     thrust::device_ptr<int> collisionsPtr;
     thrust::device_ptr<int> homeChunksPtr;
     thrust::device_ptr<bool> shouldCopyCollisionPtr;
-    thrust::device_ptr<int> cellTouchPartIdsPtr;
 
     vec3 *rk1dv;
     vec3 *rk2p, *rk2v, *rk2dv;

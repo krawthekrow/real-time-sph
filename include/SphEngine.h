@@ -8,8 +8,8 @@ using namespace glm;
 class SphEngine {
 public:
     void Init();
-    void Update(const mat4 &mvMatrix, const mat4 &pMatrix,
-        const double &currTime);
+    void Update(
+        const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime);
     void IncDrawLimitZ(const float inc);
 
 private:

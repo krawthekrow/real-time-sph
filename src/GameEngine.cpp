@@ -19,7 +19,8 @@ static const double PI = acos(-1);
 
 GameEngine::GameEngine()
     : camera(vec3(0.0f, 0.0f, -200.0f), 0, PI),
-      mouseTogglePressed(false) {}
+      mouseTogglePressed(false) {
+}
 
 void GameEngine::Init(GLFWwindow *_window) {
     window = _window;
@@ -57,7 +58,6 @@ void GameEngine::Update() {
     // procGenEngine.Update(mvpMatrix);
     sphEngine.Update(mvMatrix, pMatrix, currentTime);
 
-
     cameraController.Update(timeStep);
 
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_E)) {
@@ -83,8 +83,7 @@ bool GameEngine::CheckWindowCanClose() {
     return !GlfwUtils::IsKeyPressed(window, GLFW_KEY_ESCAPE);
 }
 
-void GameEngine::SetViewportDimensions(
-    const int width, const int height) {
+void GameEngine::SetViewportDimensions(const int width, const int height) {
     viewportDimensions = ivec2(width, height);
 
     projectionMatrix = perspective(

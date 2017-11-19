@@ -63,8 +63,7 @@ GLuint ShaderManager::compileShader(
 }
 
 GLuint ShaderManager::compileAndLinkShader(
-    const GLuint programID,
-    const GLenum shaderType,
+    const GLuint programID, const GLenum shaderType,
     const char *shaderSrc) {
     GLuint shaderID = compileShader(shaderType, shaderSrc);
     glAttachShader(programID, shaderID);

@@ -30,20 +30,17 @@ using namespace glm;
 #define X_OFFSET (NUM_BITS_COORD * 2)
 #define Y_OFFSET (NUM_BITS_COORD)
 #define Z_OFFSET 0
+#define IS_HOME_CELL_OFFSET (NUM_BITS_COORD * 3)
+#define COORDS_MASK ((1 << (NUM_BITS_COORD * 3)) - 1)
 #define BAD_CELL -1
 
 #define GRAVITY -0.0005f // -0.0001f
 #define DRAG 0.0001f // 0.001f
-#define COLLISION_DRAG 0.00001f
+#define VISCOSITY 0.02f
 #define ELASTICITY 0.8f // 0.5f
 // Particle size (for physics) squared
 #define PART_SIZE_2 1.0f // 10.0f
 #define COLLISION_FORCE 0.005f // 0.001f
-
-ostream &operator<<(ostream &os, SphCuda::CellTouch const &c) {
-    return os << "<" << c.hash << " " << (c.partInfo >> 1) <<
-        " " << (c.partInfo & 1) << ">";
-}
 
 __global__
 void initRandom(int numParts, curandState_t *states, int seed)
@@ -58,7 +55,7 @@ void initRandom(int numParts, curandState_t *states, int seed)
 __global__
 void generateCellHashes(
     int numParts, ivec3 minBound, ivec3 maxBound,
-    vec3 *pos, SphCuda::CellTouch *cellTouches) {
+    vec3 *pos, int *cellTouchHashes, int *cellTouchPartIds) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
@@ -71,15 +68,15 @@ void generateCellHashes(
             ivec3 otherCellPos = cellPos + adjacencyType * jExpanded;
             if (all(greaterThanEqual(otherCellPos, minBound)) &&
                 all(lessThanEqual(otherCellPos, maxBound))) {
-                cellTouches[cellId].hash =
+                cellTouchHashes[cellId] =
                     ((otherCellPos.x & COORD_MASK) << X_OFFSET) |
                     ((otherCellPos.y & COORD_MASK) << Y_OFFSET) |
-                    ((otherCellPos.z & COORD_MASK) << Z_OFFSET);
-                cellTouches[cellId].partInfo = (i << 1) |
-                    ((j == 0) ? 1 : 0);
+                    ((otherCellPos.z & COORD_MASK) << Z_OFFSET) |
+                    (((j == 0) ? 1 : 0) << IS_HOME_CELL_OFFSET);
+                cellTouchPartIds[cellId] = i;
             }
             else {
-                cellTouches[cellId].hash = BAD_CELL;
+                cellTouchHashes[cellId] = BAD_CELL;
             }
         }
     }
@@ -87,26 +84,27 @@ void generateCellHashes(
 
 struct IsValidCellTouchPred {
     __device__
-    bool operator()(SphCuda::CellTouch x) const {
-        return x.hash != BAD_CELL;
+    bool operator()(const thrust::tuple<int, int> &x) const {
+        return x.get<0>() != BAD_CELL;
     }
 };
 
 struct CellTouchCmp {
     __device__
-    bool operator()(SphCuda::CellTouch a, SphCuda::CellTouch b) const {
-        return a.hash < b.hash;
+    bool operator()(const int &a, const int &b) const {
+        return (a & COORDS_MASK) < (b & COORDS_MASK);
     }
 };
 
 __global__
 void findChunks(
-    int numCellTouches, SphCuda::CellTouch *cellTouches, int *chunkEnds) {
+    int numCellTouches, int *cellTouchHashes, int *chunkEnds) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numCellTouches; i += stride) {
         if (i == numCellTouches - 1 ||
-            cellTouches[i].hash != cellTouches[i + 1].hash) {
+            (cellTouchHashes[i] & COORDS_MASK) !=
+            (cellTouchHashes[i + 1] & COORDS_MASK)) {
             chunkEnds[i] = i + 1;
         }
         else {
@@ -118,7 +116,7 @@ void findChunks(
 struct IsValidChunkStartPred {
     int cmpVal;
 
-    IsValidChunkStartPred(int numCellTouches) {
+    IsValidChunkStartPred(const int &numCellTouches) {
         cmpVal = numCellTouches + 1;
     }
 
@@ -130,7 +128,8 @@ struct IsValidChunkStartPred {
 
 __global__
 void countCollisions(
-    int numChunks, int *chunkEnds, SphCuda::CellTouch *cellTouches,
+    int numChunks, int *chunkEnds,
+    int *cellTouchHashes, int *cellTouchPartIds,
     int *numCollisions, int *homeChunks) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -139,14 +138,29 @@ void countCollisions(
         int chunkEnd = chunkEnds[i];
         int currNumCollisions = chunkEnd - chunkStart;
         for (int j = chunkStart; j < chunkEnd; j++) {
-            int firstPartInfo = cellTouches[j].partInfo;
-            if ((firstPartInfo & 1) == 0) continue;
-            int firstPart = firstPartInfo >> 1;
+            if (((cellTouchHashes[j] >> IS_HOME_CELL_OFFSET) & 1) == 0)
+                continue;
+            int firstPart = cellTouchPartIds[j];
             numCollisions[firstPart] = currNumCollisions;
             homeChunks[firstPart] = chunkStart;
         }
     }
 }
+
+struct ShouldCopyCollisionPred {
+    int maxNumCollisions;
+
+    ShouldCopyCollisionPred(const int &_maxNumCollisions) {
+        maxNumCollisions = _maxNumCollisions;
+    }
+
+    // x is zip(numCollisions, collisionChunkStarts)
+    __device__
+    bool operator()(
+        const thrust::tuple<int, int> &x) const {
+        return x.get<0>() != 0 && x.get<1>() < maxNumCollisions;
+    }
+};
 
 __global__
 void checkShouldCopyCollision(int numParts,
@@ -170,43 +184,6 @@ struct CollisionIndexListCreator {
         else return b;
     }
 };
-
-struct CellTouchPartIdExtractor {
-    __device__
-    int operator()(const SphCuda::CellTouch &ct){
-        return ct.partInfo >> 1;
-    }
-};
-
-__global__
-void findCollisions(
-    int numChunks, int *chunkEnds, SphCuda::CellTouch *cellTouches,
-    int *collisionChunkEnds, int maxNumCollisions, int *collisions) {
-    int offset = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
-    for (int i = offset; i < numChunks; i += stride) {
-        int chunkStart = (i == 0) ? 0 : chunkEnds[i - 1];
-        int chunkEnd = chunkEnds[i];
-        for (int j = chunkStart; j < chunkEnd; j++) {
-            int firstPartInfo = cellTouches[j].partInfo;
-            if ((firstPartInfo & 1) == 0) continue;
-            int firstPart = firstPartInfo >> 1;
-            int collisionChunkIndex =
-                (firstPart == 0) ? 0 : collisionChunkEnds[firstPart - 1];
-            for (int k = chunkStart; k < chunkEnd; k++) {
-                if (collisionChunkIndex >= maxNumCollisions) break;
-                // if (j != k) {
-                //     int secondPart = cellTouches[k].partInfo >> 1;
-                //     collisions[collisionChunkIndex] = secondPart;
-                //     collisionChunkIndex++;
-                // }
-                int secondPart = cellTouches[k].partInfo >> 1;
-                collisions[collisionChunkIndex] = secondPart;
-                collisionChunkIndex++;
-            }
-        }
-    }
-}
 
 __global__
 void computeContactForces(
@@ -253,8 +230,8 @@ void computeContactForces(
                     COLLISION_FORCE;
                 contactForce += currForce;
                 static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
-                // contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * COLLISION_DRAG;
-                contactForce += -1.0f / forceScale * dot(v[i] - v[collisions[j]], currForce) * currForce / length(currForce) * 2000.0f * COLLISION_DRAG;
+                // contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * VISCOSITY;
+                contactForce += -1.0f / forceScale * dot(v[i] - v[collisions[j]], currForce) * currForce / length(currForce) * VISCOSITY;
             }
         }
         contactForces[i] = contactForce;
@@ -266,65 +243,6 @@ void computeContactForces(
         // ) - 0.5f) * 0.001f * length(contactForces[firstPart]);
     }
 }
-
-// __global__
-// void computeContactForces(
-//     int numParts, vec3 *pos, int numChunks, int *chunkEnds,
-//     SphCuda::CellTouch *cellTouches,
-//     vec3 *contactForces, curandState_t *randStates) {
-//     int offset = blockIdx.x * blockDim.x + threadIdx.x;
-//     int stride = blockDim.x * gridDim.x;
-//     for (int i = offset; i < numChunks; i += stride) {
-//         int chunkStart = (i == 0) ? 0 : chunkEnds[i - 1];
-//         int chunkEnd = chunkEnds[i];
-//         for (int j = chunkStart; j < chunkEnd; j++) {
-//             int firstPartInfo = cellTouches[j].partInfo;
-//             if ((firstPartInfo & 1) == 0) continue;
-//             int firstPart = firstPartInfo >> 1;
-//             contactForces[firstPart] = vec3(0.0f);
-//             for (int k = chunkStart; k < chunkEnd; k++) {
-//                 if (j != k) {
-//                     int secondPart = cellTouches[k].partInfo >> 1;
-//                     vec3 relPos = pos[firstPart] - pos[secondPart];
-//                     float dist2 = dot(relPos, relPos);
-//                     if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE)
-//                         contactForces[firstPart] +=
-//                             // relPos * (1 - dist2 / PART_SIZE_2) *
-//                             relPos * exp(-dist2 / PART_SIZE_2) *
-//                             COLLISION_FORCE;
-//                 }
-//             }
-//             // contactForces[firstPart] += (vec3(
-//             //     curand_uniform(&randStates[firstPart]),
-//             //     curand_uniform(&randStates[firstPart]),
-//             //     curand_uniform(&randStates[firstPart])
-//             // ) - 0.5f) * 0.001f * length(contactForces[firstPart]);
-//         }
-//     }
-// }
-
-// __global__
-// void computeContactForces(
-//     int numParts, vec3 *pos, int numChunks, int *chunkEnds,
-//     vec3 *contactForces, curandState_t *randStates) {
-//     int offset = blockIdx.x * blockDim.x + threadIdx.x;
-//     int stride = blockDim.x * gridDim.x;
-//     for (int i = offset; i < numParts; i += stride) {
-//         contactForces[i] = vec3(0.0f);
-//         for (int j = 0; j < numParts; j++) {
-//             vec3 relPos = pos[i] - pos[j];
-//             float dist2 = dot(relPos, relPos);
-//             if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE)
-//                 contactForces[i] +=
-//                     relPos * exp(-dist2 / PART_SIZE_2) * COLLISION_FORCE;
-//         }
-//         contactForces[i] += (vec3(
-//             curand_uniform(&randStates[i]),
-//             curand_uniform(&randStates[i]),
-//             curand_uniform(&randStates[i])
-//         ) - 0.5f) * 0.001f * length(contactForces[i]);
-//     }
-// }
 
 __global__
 void update(
@@ -455,7 +373,7 @@ void enforceBoundary(
         // static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
         // float forceSquared = dot(currForce, currForce);
         // if (forceSquared > 0)
-        //     currForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / forceSquared * COLLISION_DRAG * 0.1f;
+        //     currForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / forceSquared * VISCOSITY * 0.1f;
         v[i] += currForce;
     }
 }
@@ -475,9 +393,8 @@ SphCuda::~SphCuda() {
     cudaFree(velocities);
     cudaFree(contactForces);
 
-    cudaFree(cellTouchesSparse);
-    cudaFree(cellTouches);
-    cudaFree(chunkEndsSparse);
+    cudaFree(cellTouchHashes);
+    cudaFree(cellTouchPartIds);
     cudaFree(chunkEnds);
 
     cudaFree(numCollisions);
@@ -486,7 +403,6 @@ SphCuda::~SphCuda() {
     cudaFree(collisions);
     cudaFree(homeChunks);
     cudaFree(shouldCopyCollision);
-    cudaFree(cellTouchPartIds);
 
     cudaFree(rk1dv);
     cudaFree(rk2p);
@@ -522,14 +438,14 @@ void SphCuda::Init(
     cudaMallocManaged(&contactForces, numParts * sizeof(vec3));
 
     // Each particle overlaps 8 cells
-    cudaMalloc(&cellTouchesSparse, 8 * numParts * sizeof(CellTouch));
-    cudaMalloc(&cellTouches, 8 * numParts * sizeof(CellTouch));
-    cudaMalloc(&chunkEndsSparse, 8 * numParts * sizeof(int));
+    cudaMalloc(&cellTouchHashes, 8 * numParts * sizeof(int));
+    cudaMalloc(&cellTouchPartIds, 8 * numParts * sizeof(int));
     cudaMalloc(&chunkEnds, 8 * numParts * sizeof(int));
 
-    cellTouchesSparsePtr = thrust::device_pointer_cast(cellTouchesSparse);
-    cellTouchesPtr = thrust::device_pointer_cast(cellTouches);
-    chunkEndsSparsePtr = thrust::device_pointer_cast(chunkEndsSparse);
+    cellTouchHashesPtr = thrust::device_pointer_cast(cellTouchHashes);
+    cellTouchPartIdsPtr = thrust::device_pointer_cast(cellTouchPartIds);
+    cellTouchesPtr = thrust::make_zip_iterator(thrust::make_tuple(
+        cellTouchHashes, cellTouchPartIds));
     chunkEndsPtr = thrust::device_pointer_cast(chunkEnds);
 
     cudaMalloc(&numCollisions, numParts * sizeof(int));
@@ -540,7 +456,6 @@ void SphCuda::Init(
     cudaMalloc(&collisions, maxNumCollisions * sizeof(int));
     cudaMalloc(&homeChunks, numParts * sizeof(int));
     cudaMalloc(&shouldCopyCollision, numParts * sizeof(bool));
-    cudaMalloc(&cellTouchPartIds, 8 * numParts * sizeof(int));
 
     numCollisionsPtr = thrust::device_pointer_cast(numCollisions);
     collisionChunkStartsPtr =
@@ -574,19 +489,19 @@ void SphCuda::Init(
 void SphCuda::Update(const double &currTime, const float &rotAmt) {
     generateCellHashes<<<numBlocksParts, blockSize>>>(
         numParts, minBoundCell, maxBoundCell,
-        pos, cellTouchesSparse);
+        pos, cellTouchHashes, cellTouchPartIds);
     int numCellTouches = thrust::copy_if(
-        cellTouchesSparsePtr, cellTouchesSparsePtr + 8 * numParts,
+        cellTouchesPtr, cellTouchesPtr + 8 * numParts,
         cellTouchesPtr, IsValidCellTouchPred()) - cellTouchesPtr;
-
     int numBlocksCellTouches =
         (numCellTouches + blockSize - 1) / blockSize;
-    thrust::stable_sort(
-        cellTouchesPtr, cellTouchesPtr + numCellTouches, CellTouchCmp());
+    thrust::sort_by_key(
+        cellTouchHashesPtr, cellTouchHashesPtr + numCellTouches,
+        cellTouchPartIdsPtr, CellTouchCmp());
     findChunks<<<numBlocksCellTouches, blockSize>>>(
-        numCellTouches, cellTouches, chunkEndsSparse);
+        numCellTouches, cellTouchHashes, chunkEnds);
     int numChunks = thrust::copy_if(
-        chunkEndsSparsePtr, chunkEndsSparsePtr + numCellTouches,
+        chunkEndsPtr, chunkEndsPtr + numCellTouches,
         chunkEndsPtr, IsValidChunkStartPred(numCellTouches)) -
         chunkEndsPtr;
     // printf("Number of chunks: %d\n", numChunks);
@@ -597,22 +512,20 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
         (numChunks + blockSizeChunks - 1) / blockSizeChunks;
     // CudaUtils::DebugPrint(chunkEnds, 16);
     countCollisions<<<numBlocksChunks, blockSizeChunks>>>(
-        numChunks, chunkEnds, cellTouches, numCollisions, homeChunks);
+        numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
+        numCollisions, homeChunks);
     thrust::inclusive_scan(numCollisionsPtr, numCollisionsPtr + numParts,
         collisionChunkEndsPtr);
     thrust::exclusive_scan(numCollisionsPtr, numCollisionsPtr + numParts,
         collisionChunkStartsPtr);
     thrust::fill(collisionsPtr, collisionsPtr + maxNumCollisions, -1);
-    checkShouldCopyCollision<<<numBlocksParts, blockSize>>>(
-        numParts,
-        numCollisions, collisionChunkStarts, shouldCopyCollision,
-        maxNumCollisions);
     thrust::scatter_if(homeChunksPtr, homeChunksPtr + numParts,
-        collisionChunkStartsPtr, shouldCopyCollisionPtr, collisionsPtr);
+        collisionChunkStartsPtr,
+        thrust::make_zip_iterator(
+            thrust::make_tuple(numCollisionsPtr, collisionChunkStartsPtr)),
+        collisionsPtr, ShouldCopyCollisionPred(maxNumCollisions));
     thrust::inclusive_scan(collisionsPtr, collisionsPtr + maxNumCollisions,
         collisionsPtr, CollisionIndexListCreator());
-    thrust::transform(cellTouchesPtr, cellTouchesPtr + 8 * numParts,
-        cellTouchPartIdsPtr, CellTouchPartIdExtractor());
     thrust::gather(collisionsPtr, collisionsPtr + maxNumCollisions,
         cellTouchPartIdsPtr, collisionsPtr);
 

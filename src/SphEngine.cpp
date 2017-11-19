@@ -2,8 +2,8 @@
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/random.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/random.hpp>
 
 #include "ShaderManager.h"
 #include "Shaders.h"
@@ -16,12 +16,12 @@ const int NUM_PARTS = 3000;
 const float ROT_RATE = 1000.0f;
 
 void SphEngine::Init() {
-    minBound = vec3(-25.0f);
-    maxBound = vec3(25.0f);
+    minBound = vec3(-25.0f, -25.0f, -25.0f);
+    maxBound = vec3(25.0f, 25.0f, 25.0f);
 
     drawLimitZ = minBound.z;
 
-    //SPH INIT
+    // SPH INIT
 
     shaderProgram = ShaderManager::LoadShaders(
         Shaders::VERT_DONOTHING,
@@ -30,8 +30,7 @@ void SphEngine::Init() {
     glUseProgram(shaderProgram);
     mvLocation = glGetUniformLocation(shaderProgram, "MV");
     pLocation = glGetUniformLocation(shaderProgram, "P");
-    drawLimitZLocation =
-        glGetUniformLocation(shaderProgram, "drawLimitZ");
+    drawLimitZLocation = glGetUniformLocation(shaderProgram, "drawLimitZ");
 
     GLuint posModelSpaceLocation =
         glGetAttribLocation(shaderProgram, "posModelSpace");
@@ -49,7 +48,9 @@ void SphEngine::Init() {
     for (int i = 0; i < NUM_PARTS; i++) {
         // vec3 pos = linearRand(minBound, maxBound);
         vec3 dims = maxBound - minBound;
-        vec3 pos = linearRand(minBound, vec3(minBound.x + dims.x / 2.0f, maxBound.y, maxBound.z));
+        vec3 pos = linearRand(
+            minBound,
+            vec3(minBound.x + dims.x / 8.0f, maxBound.y, maxBound.z));
         initPos[i * 3] = pos.x;
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
@@ -66,8 +67,7 @@ void SphEngine::Init() {
     // BOUNDING BOX INIT
 
     bbProgram = ShaderManager::LoadShaders(
-        Shaders::VERT_TRANSFORMPOINTS,
-        Shaders::FRAG_DONOTHING);
+        Shaders::VERT_TRANSFORMPOINTS, Shaders::FRAG_DONOTHING);
     glUseProgram(bbProgram);
 
     bbMvpLocation = glGetUniformLocation(bbProgram, "MVP");
@@ -109,8 +109,8 @@ void SphEngine::Init() {
         GL_ARRAY_BUFFER, sizeof(bbLineVerts), bbLineVerts, GL_STATIC_DRAW);
 }
 
-void SphEngine::Update(const mat4 &mvMatrix, const mat4 &pMatrix,
-    const double &currTime) {
+void SphEngine::Update(
+    const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime) {
     const float rotAmt = currTime / ROT_RATE;
     sphCuda.Update(currTime, rotAmt);
 
@@ -134,6 +134,8 @@ void SphEngine::Update(const mat4 &mvMatrix, const mat4 &pMatrix,
 
 void SphEngine::IncDrawLimitZ(const float inc) {
     drawLimitZ += inc;
-    if (drawLimitZ < minBound.z) drawLimitZ = minBound.z;
-    if (drawLimitZ > maxBound.z) drawLimitZ = maxBound.z;
+    if (drawLimitZ < minBound.z)
+        drawLimitZ = minBound.z;
+    if (drawLimitZ > maxBound.z)
+        drawLimitZ = maxBound.z;
 }
