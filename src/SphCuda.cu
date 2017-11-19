@@ -14,6 +14,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_malloc.h>
 
+#include <nvToolsExt.h>
+
 #define GLM_FORCE_CUDA
 #include <glm/glm.hpp>
 #include <glm/gtc/random.hpp>
@@ -177,11 +179,11 @@ void checkShouldCopyCollision(int numParts,
 struct CollisionIndexListCreator {
     __device__
     int operator()(const int &a, const int &b) const {
-        if (b < 0) {
-            if (a < 0) return a + b;
-            else return a - b;
-        }
-        else return b;
+        // This makes the below pseudocode faster:
+        // if b >= 0 return b
+        // if a < 0 return a + b
+        // else return a - b
+        return (b >= 0) ? b : (a + b * ((a < 0) * 2 - 1));
     }
 };
 
@@ -487,6 +489,8 @@ void SphCuda::Init(
 }
 
 void SphCuda::Update(const double &currTime, const float &rotAmt) {
+    nvtxRangePushA("sim_update");
+
     generateCellHashes<<<numBlocksParts, blockSize>>>(
         numParts, minBoundCell, maxBoundCell,
         pos, cellTouchHashes, cellTouchPartIds);
@@ -529,20 +533,6 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     thrust::gather(collisionsPtr, collisionsPtr + maxNumCollisions,
         cellTouchPartIdsPtr, collisionsPtr);
 
-    // findCollisions<<<numBlocksChunks, blockSizeChunks>>>(
-    //     numChunks, chunkEnds, cellTouches, collisionChunkEnds,
-    //     maxNumCollisions, collisions);
-
-    // computeContactForces<<<numBlocksParts, blockSize>>>(
-    //     numParts, pos, collisionChunkEnds, collisions,
-    //     contactForces, randStates);
-    // computeAccel<<<numBlocksParts, blockSize>>>(
-    //     numParts, pos, velocities, contactForces, accel);
-    // multAddVec3<<<numBlocksParts, blockSize>>>(
-    //     numParts, 1.0f, pos, velocities, pos);
-    // multAddVec3<<<numBlocksParts, blockSize>>>(
-    //     numParts, 1.0f, velocities, accel, velocities);
-
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
     computeAccelRK(rk1p, rk1v, rk1dv, currTime, rotAmt);
@@ -565,9 +555,8 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
 
     enforceBoundary<<<numBlocksParts, blockSize>>>(
         numParts, minBound, maxBound, pos, velocities, randStates);
-    // update<<<numBlocksParts, blockSize>>>(
-    //     numParts, minBound, maxBound,
-    //     pos, velocities, contactForces, randStates);
+
+    nvtxRangePop();
 }
 
 vec3 *SphCuda::GetVelocitiesPtr() {

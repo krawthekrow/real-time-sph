@@ -37,3 +37,6 @@ if (GLEW_FOUND)
     include_directories(${GLEW_INCLUDE_DIRS})
     target_link_libraries(main ${GLEW_LIBRARIES})
 endif()
+
+find_library (NVTX_LIBRARY nvToolsExt PATHS ENV LD_LIBRARY_PATH)
+target_link_libraries(main ${NVTX_LIBRARY})
