@@ -190,18 +190,20 @@ struct CollisionIndexListCreator {
 __global__
 void computeContactForces(
     int numParts, vec3 *pos, vec3 *v,
-    int maxNumCollisions, int *collisionChunkEnds, int *collisions,
+    int numCollisions, int *collisionChunkStarts, int *collisions,
     vec3 *contactForces, curandState_t *randStates) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
-        int chunkStart = (i == 0) ? 0 : collisionChunkEnds[i - 1];
-        int chunkEnd = collisionChunkEnds[i];
+        int chunkStart = collisionChunkStarts[i];
+        int chunkEnd = (i == numParts - 1)
+            ? numCollisions : collisionChunkStarts[i + 1];
 
         // float density = 0.0f;
         // vec3 ddensity(0.0f);
         // for (int j = chunkStart; j < chunkEnd; j++) {
-        //     if (j >= maxNumCollisions) break;
+        //     if (j >= numCollisions) break;
+        //     if (i == collisions[j]) continue;
         //     vec3 relPos = pos[i] - pos[collisions[j]];
         //     float dist2 = dot(relPos, relPos);
         //     if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE) {
@@ -210,12 +212,10 @@ void computeContactForces(
         //         ddensity += relPos * density;
         //     }
         // }
-        // contactForces[i] = COLLISION_FORCE *
-        //     (density + 0.1f) * ddensity * 0.001f;
 
         vec3 contactForce(0.0f);
         for (int j = chunkStart; j < chunkEnd; j++) {
-            if (j >= maxNumCollisions) break;
+            if (j >= numCollisions) break;
             if (i == collisions[j]) continue;
             vec3 relPos = pos[i] - pos[collisions[j]];
             float dist2 = dot(relPos, relPos);
@@ -401,7 +401,6 @@ SphCuda::~SphCuda() {
 
     cudaFree(numCollisions);
     cudaFree(collisionChunkStarts);
-    cudaFree(collisionChunkEnds);
     cudaFree(collisions);
     cudaFree(homeChunks);
     cudaFree(shouldCopyCollision);
@@ -452,7 +451,6 @@ void SphCuda::Init(
 
     cudaMalloc(&numCollisions, numParts * sizeof(int));
     cudaMalloc(&collisionChunkStarts, numParts * sizeof(int));
-    cudaMalloc(&collisionChunkEnds, numParts * sizeof(int));
     // Assume each particle has a max valency of 16
     maxNumCollisions = 128 * numParts;
     cudaMalloc(&collisions, maxNumCollisions * sizeof(int));
@@ -462,8 +460,6 @@ void SphCuda::Init(
     numCollisionsPtr = thrust::device_pointer_cast(numCollisions);
     collisionChunkStartsPtr =
         thrust::device_pointer_cast(collisionChunkStarts);
-    collisionChunkEndsPtr =
-        thrust::device_pointer_cast(collisionChunkEnds);
     collisionsPtr = thrust::device_pointer_cast(collisions);
     homeChunksPtr =
         thrust::device_pointer_cast(homeChunks);
@@ -494,58 +490,62 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     generateCellHashes<<<numBlocksParts, blockSize>>>(
         numParts, minBoundCell, maxBoundCell,
         pos, cellTouchHashes, cellTouchPartIds);
-    int numCellTouches = thrust::copy_if(
+    const int numCellTouches = thrust::copy_if(
         cellTouchesPtr, cellTouchesPtr + 8 * numParts,
         cellTouchesPtr, IsValidCellTouchPred()) - cellTouchesPtr;
-    int numBlocksCellTouches =
+    const int numBlocksCellTouches =
         (numCellTouches + blockSize - 1) / blockSize;
     thrust::sort_by_key(
         cellTouchHashesPtr, cellTouchHashesPtr + numCellTouches,
         cellTouchPartIdsPtr, CellTouchCmp());
     findChunks<<<numBlocksCellTouches, blockSize>>>(
         numCellTouches, cellTouchHashes, chunkEnds);
-    int numChunks = thrust::copy_if(
+    const int numChunks = thrust::copy_if(
         chunkEndsPtr, chunkEndsPtr + numCellTouches,
         chunkEndsPtr, IsValidChunkStartPred(numCellTouches)) -
         chunkEndsPtr;
     // printf("Number of chunks: %d\n", numChunks);
     // printf("Number of touches: %d\n", numCellTouches);
 
-    int blockSizeChunks = 256;
-    int numBlocksChunks =
+    const int blockSizeChunks = 256;
+    const int numBlocksChunks =
         (numChunks + blockSizeChunks - 1) / blockSizeChunks;
     // CudaUtils::DebugPrint(chunkEnds, 16);
     countCollisions<<<numBlocksChunks, blockSizeChunks>>>(
         numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
         numCollisions, homeChunks);
-    thrust::inclusive_scan(numCollisionsPtr, numCollisionsPtr + numParts,
-        collisionChunkEndsPtr);
     thrust::exclusive_scan(numCollisionsPtr, numCollisionsPtr + numParts,
         collisionChunkStartsPtr);
-    thrust::fill(collisionsPtr, collisionsPtr + maxNumCollisions, -1);
+    const int totNumCollisions = min(maxNumCollisions,
+        *(collisionChunkStartsPtr + numParts - 1) +
+        *(numCollisionsPtr + numParts - 1));
+    thrust::fill(collisionsPtr, collisionsPtr + totNumCollisions, -1);
     thrust::scatter_if(homeChunksPtr, homeChunksPtr + numParts,
         collisionChunkStartsPtr,
         thrust::make_zip_iterator(
             thrust::make_tuple(numCollisionsPtr, collisionChunkStartsPtr)),
-        collisionsPtr, ShouldCopyCollisionPred(maxNumCollisions));
-    thrust::inclusive_scan(collisionsPtr, collisionsPtr + maxNumCollisions,
+        collisionsPtr, ShouldCopyCollisionPred(totNumCollisions));
+    thrust::inclusive_scan(collisionsPtr, collisionsPtr + totNumCollisions,
         collisionsPtr, CollisionIndexListCreator());
-    thrust::gather(collisionsPtr, collisionsPtr + maxNumCollisions,
+    thrust::gather(collisionsPtr, collisionsPtr + totNumCollisions,
         cellTouchPartIdsPtr, collisionsPtr);
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
-    computeAccelRK(rk1p, rk1v, rk1dv, currTime, rotAmt);
+    computeAccelRK(totNumCollisions, rk1p, rk1v, rk1dv, currTime, rotAmt);
 
     const static bool USE_RK4 = false;
 
     if (USE_RK4) {
         advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
-        computeAccelRK(rk2p, rk2v, rk2dv, currTime, rotAmt);
+        computeAccelRK(totNumCollisions,
+            rk2p, rk2v, rk2dv, currTime, rotAmt);
         advanceStateRK(pos, velocities, 0.5f, rk2v, rk2dv, rk3p, rk3v);
-        computeAccelRK(rk3p, rk3v, rk3dv, currTime, rotAmt);
+        computeAccelRK(totNumCollisions,
+            rk3p, rk3v, rk3dv, currTime, rotAmt);
         advanceStateRK(pos, velocities, 1.0f, rk3v, rk3dv, rk4p, rk4v);
-        computeAccelRK(rk4p, rk4v, rk4dv, currTime, rotAmt);
+        computeAccelRK(totNumCollisions,
+            rk4p, rk4v, rk4dv, currTime, rotAmt);
         advanceState<<<numBlocksParts, blockSize>>>(
             numParts, pos, velocities,
             rk1v, rk1dv, rk2v, rk2dv, rk3v, rk3dv, rk4v, rk4dv);
@@ -564,11 +564,12 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 }
 
 void SphCuda::computeAccelRK(
+    const int &totNumCollisions,
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel,
     const double &t, const float &rotAmt) {
     computeContactForces<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel,
-        maxNumCollisions, collisionChunkEnds, collisions,
+        totNumCollisions, collisionChunkStarts, collisions,
         contactForces, randStates);
     computeAccel<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel, contactForces, currAccel, t, rotAmt);

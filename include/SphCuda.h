@@ -42,19 +42,18 @@ private:
     thrust::device_ptr<int> chunkEndsPtr;
     thrust::zip_iterator<thrust::tuple<
         thrust::device_ptr<int>,
-        thrust::device_ptr<int>>> cellTouchesPtr;
+        thrust::device_ptr<int>>>
+        cellTouchesPtr;
 
     int maxNumCollisions;
     int *numCollisions;
     int *collisionChunkStarts;
-    int *collisionChunkEnds;
     int *collisions;
     int *homeChunks;
     bool *shouldCopyCollision;
 
     thrust::device_ptr<int> numCollisionsPtr;
     thrust::device_ptr<int> collisionChunkStartsPtr;
-    thrust::device_ptr<int> collisionChunkEndsPtr;
     thrust::device_ptr<int> collisionsPtr;
     thrust::device_ptr<int> homeChunksPtr;
     thrust::device_ptr<bool> shouldCopyCollisionPtr;
@@ -67,6 +66,7 @@ private:
     curandState_t *randStates;
 
     void computeAccelRK(
+        const int &totNumCollisions,
         vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel,
         const double &t, const float &rotAmt);
     void advanceStateRK(
