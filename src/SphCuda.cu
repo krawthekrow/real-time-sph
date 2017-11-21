@@ -29,11 +29,11 @@ using namespace glm;
 #define CELL_SIZE 4.0f // 8.0f
 #define NUM_BITS_COORD 8
 #define COORD_MASK ((1 << NUM_BITS_COORD) - 1)
-#define X_OFFSET (NUM_BITS_COORD * 2)
-#define Y_OFFSET (NUM_BITS_COORD)
-#define Z_OFFSET 0
-#define IS_HOME_CELL_OFFSET (NUM_BITS_COORD * 3)
-#define COORDS_MASK ((1 << (NUM_BITS_COORD * 3)) - 1)
+#define X_OFFSET (NUM_BITS_COORD * 2 + 1)
+#define Y_OFFSET (NUM_BITS_COORD + 1)
+#define Z_OFFSET 1
+#define COORDS_MASK ((1 << (3 * NUM_BITS_COORD + 1)) - 2)
+#define IS_HOME_CELL_OFFSET 0
 #define BAD_CELL -1
 
 #define GRAVITY -0.0005f // -0.0001f
@@ -190,14 +190,13 @@ struct CollisionIndexListCreator {
 __global__
 void computeContactForces(
     int numParts, vec3 *pos, vec3 *v,
-    int numCollisions, int *collisionChunkStarts, int *collisions,
+    int *numCollisions, int *homeChunks, int *cellTouchPartIds,
     vec3 *contactForces, curandState_t *randStates) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
-        int chunkStart = collisionChunkStarts[i];
-        int chunkEnd = (i == numParts - 1)
-            ? numCollisions : collisionChunkStarts[i + 1];
+        int chunkStart = homeChunks[i];
+        int chunkSize = numCollisions[i];
 
         // float density = 0.0f;
         // vec3 ddensity(0.0f);
@@ -214,10 +213,11 @@ void computeContactForces(
         // }
 
         vec3 contactForce(0.0f);
-        for (int j = chunkStart; j < chunkEnd; j++) {
-            if (j >= numCollisions) break;
-            if (i == collisions[j]) continue;
-            vec3 relPos = pos[i] - pos[collisions[j]];
+        for (int chunkPos = 0; chunkPos < chunkSize; chunkPos++) {
+            int j = chunkStart + chunkPos;
+            int otherPart = cellTouchPartIds[j];
+            if (i == otherPart) continue;
+            vec3 relPos = pos[i] - pos[otherPart];
             float dist2 = dot(relPos, relPos);
             if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE / 4.0f) {
                 float normdist2 = dist2 / PART_SIZE_2;
@@ -233,7 +233,7 @@ void computeContactForces(
                 contactForce += currForce;
                 static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
                 // contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * VISCOSITY;
-                contactForce += -1.0f / forceScale * dot(v[i] - v[collisions[j]], currForce) * currForce / length(currForce) * VISCOSITY;
+                contactForce += -1.0f / forceScale * dot(v[i] - v[otherPart], currForce) * currForce / length(currForce) * VISCOSITY;
             }
         }
         contactForces[i] = contactForce;
@@ -497,7 +497,7 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
         (numCellTouches + blockSize - 1) / blockSize;
     thrust::sort_by_key(
         cellTouchHashesPtr, cellTouchHashesPtr + numCellTouches,
-        cellTouchPartIdsPtr, CellTouchCmp());
+        cellTouchPartIdsPtr);
     findChunks<<<numBlocksCellTouches, blockSize>>>(
         numCellTouches, cellTouchHashes, chunkEnds);
     const int numChunks = thrust::copy_if(
@@ -514,38 +514,20 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     countCollisions<<<numBlocksChunks, blockSizeChunks>>>(
         numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
         numCollisions, homeChunks);
-    thrust::exclusive_scan(numCollisionsPtr, numCollisionsPtr + numParts,
-        collisionChunkStartsPtr);
-    const int totNumCollisions = min(maxNumCollisions,
-        *(collisionChunkStartsPtr + numParts - 1) +
-        *(numCollisionsPtr + numParts - 1));
-    thrust::fill(collisionsPtr, collisionsPtr + totNumCollisions, -1);
-    thrust::scatter_if(homeChunksPtr, homeChunksPtr + numParts,
-        collisionChunkStartsPtr,
-        thrust::make_zip_iterator(
-            thrust::make_tuple(numCollisionsPtr, collisionChunkStartsPtr)),
-        collisionsPtr, ShouldCopyCollisionPred(totNumCollisions));
-    thrust::inclusive_scan(collisionsPtr, collisionsPtr + totNumCollisions,
-        collisionsPtr, CollisionIndexListCreator());
-    thrust::gather(collisionsPtr, collisionsPtr + totNumCollisions,
-        cellTouchPartIdsPtr, collisionsPtr);
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
-    computeAccelRK(totNumCollisions, rk1p, rk1v, rk1dv, currTime, rotAmt);
+    computeAccelRK(rk1p, rk1v, rk1dv, currTime, rotAmt);
 
     const static bool USE_RK4 = false;
 
     if (USE_RK4) {
         advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
-        computeAccelRK(totNumCollisions,
-            rk2p, rk2v, rk2dv, currTime, rotAmt);
+        computeAccelRK(rk2p, rk2v, rk2dv, currTime, rotAmt);
         advanceStateRK(pos, velocities, 0.5f, rk2v, rk2dv, rk3p, rk3v);
-        computeAccelRK(totNumCollisions,
-            rk3p, rk3v, rk3dv, currTime, rotAmt);
+        computeAccelRK(rk3p, rk3v, rk3dv, currTime, rotAmt);
         advanceStateRK(pos, velocities, 1.0f, rk3v, rk3dv, rk4p, rk4v);
-        computeAccelRK(totNumCollisions,
-            rk4p, rk4v, rk4dv, currTime, rotAmt);
+        computeAccelRK(rk4p, rk4v, rk4dv, currTime, rotAmt);
         advanceState<<<numBlocksParts, blockSize>>>(
             numParts, pos, velocities,
             rk1v, rk1dv, rk2v, rk2dv, rk3v, rk3dv, rk4v, rk4dv);
@@ -564,12 +546,11 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 }
 
 void SphCuda::computeAccelRK(
-    const int &totNumCollisions,
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel,
     const double &t, const float &rotAmt) {
     computeContactForces<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel,
-        totNumCollisions, collisionChunkStarts, collisions,
+        numCollisions, homeChunks, cellTouchPartIds,
         contactForces, randStates);
     computeAccel<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel, contactForces, currAccel, t, rotAmt);

@@ -66,7 +66,6 @@ private:
     curandState_t *randStates;
 
     void computeAccelRK(
-        const int &totNumCollisions,
         vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel,
         const double &t, const float &rotAmt);
     void advanceStateRK(
