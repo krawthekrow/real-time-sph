@@ -32,6 +32,7 @@ private:
     vec3 *pos;
     vec3 *velocities;
     vec3 *contactForces;
+    float *densities;
 
     int *cellTouchHashes;
     int *cellTouchPartIds;

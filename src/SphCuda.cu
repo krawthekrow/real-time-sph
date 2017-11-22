@@ -36,13 +36,19 @@ using namespace glm;
 #define IS_HOME_CELL_OFFSET 0
 #define BAD_CELL -1
 
-#define GRAVITY -0.0005f // -0.0001f
-#define DRAG 0.0001f // 0.001f
-#define VISCOSITY 0.02f
-#define ELASTICITY 0.8f // 0.5f
+#define GRAVITY -0.0005f
+#define DRAG 0.0f
+#define VISCOSITY 0.01f
+#define BOUNDARY_ELASTICITY 1.0f
+#define COLLISION_FORCE 0.01f
+#define DENSITY_OFFSET 1.1f
+#define GAMMA 2.0f
 // Particle size (for physics) squared
-#define PART_SIZE_2 1.0f // 10.0f
-#define COLLISION_FORCE 0.005f // 0.001f
+#define PART_SIZE (CELL_SIZE / 2.0f)
+#define PART_SIZE_2 (PART_SIZE * PART_SIZE)
+#define BOUNDARY_PRESSURE 0.6f
+
+#define USE_RK4 false
 
 __global__
 void initRandom(int numParts, curandState_t *states, int seed)
@@ -88,13 +94,6 @@ struct IsValidCellTouchPred {
     __device__
     bool operator()(const thrust::tuple<int, int> &x) const {
         return x.get<0>() != BAD_CELL;
-    }
-};
-
-struct CellTouchCmp {
-    __device__
-    bool operator()(const int &a, const int &b) const {
-        return (a & COORDS_MASK) < (b & COORDS_MASK);
     }
 };
 
@@ -149,146 +148,75 @@ void countCollisions(
     }
 }
 
-struct ShouldCopyCollisionPred {
-    int maxNumCollisions;
-
-    ShouldCopyCollisionPred(const int &_maxNumCollisions) {
-        maxNumCollisions = _maxNumCollisions;
-    }
-
-    // x is zip(numCollisions, collisionChunkStarts)
-    __device__
-    bool operator()(
-        const thrust::tuple<int, int> &x) const {
-        return x.get<0>() != 0 && x.get<1>() < maxNumCollisions;
-    }
-};
-
 __global__
-void checkShouldCopyCollision(int numParts,
-    int *numCollisions, int *collisionChunkStarts,
-    bool *shouldCopyCollisionPtr, int maxNumCollisions) {
-    int offset = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
-    for (int i = offset; i < numParts; i += stride) {
-        shouldCopyCollisionPtr[i] = numCollisions[i] != 0 &&
-            collisionChunkStarts[i] < maxNumCollisions;
-    }
-}
-
-struct CollisionIndexListCreator {
-    __device__
-    int operator()(const int &a, const int &b) const {
-        // This makes the below pseudocode faster:
-        // if b >= 0 return b
-        // if a < 0 return a + b
-        // else return a - b
-        return (b >= 0) ? b : (a + b * ((a < 0) * 2 - 1));
-    }
-};
-
-__global__
-void computeContactForces(
+void computePressures(
     int numParts, vec3 *pos, vec3 *v,
     int *numCollisions, int *homeChunks, int *cellTouchPartIds,
-    vec3 *contactForces, curandState_t *randStates) {
+    float *densities) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
         int chunkStart = homeChunks[i];
         int chunkSize = numCollisions[i];
 
-        // float density = 0.0f;
-        // vec3 ddensity(0.0f);
-        // for (int j = chunkStart; j < chunkEnd; j++) {
-        //     if (j >= numCollisions) break;
-        //     if (i == collisions[j]) continue;
-        //     vec3 relPos = pos[i] - pos[collisions[j]];
-        //     float dist2 = dot(relPos, relPos);
-        //     if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE) {
-        //         density += exp(-dist2 / (PART_SIZE_2 * 1.0f));
-        //         // density += exp(-sqrt(dist2 / (PART_SIZE_2 * 1.0f)));
-        //         ddensity += relPos * density;
-        //     }
-        // }
-
-        vec3 contactForce(0.0f);
+        float density = 0.0f;
         for (int chunkPos = 0; chunkPos < chunkSize; chunkPos++) {
-            int j = chunkStart + chunkPos;
-            int otherPart = cellTouchPartIds[j];
-            if (i == otherPart) continue;
-            vec3 relPos = pos[i] - pos[otherPart];
-            float dist2 = dot(relPos, relPos);
-            if (dist2 > 0.01f && dist2 < CELL_SIZE * CELL_SIZE / 4.0f) {
-                float normdist2 = dist2 / PART_SIZE_2;
-                // contactForce +=
-                //     relPos * (1.0f - normdist2 / 1.5f +
-                //     normdist2 * normdist2 / 9.5f
-                //     ) *
-                //     COLLISION_FORCE;
-                vec3 currForce =
-                    // relPos * (1 - dist2 / PART_SIZE_2) *
-                    relPos * exp(-normdist2) *
-                    COLLISION_FORCE;
-                contactForce += currForce;
-                static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
-                // contactForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / dot(currForce, currForce) * VISCOSITY;
-                contactForce += -1.0f / forceScale * dot(v[i] - v[otherPart], currForce) * currForce / length(currForce) * VISCOSITY;
+            int j = cellTouchPartIds[chunkStart + chunkPos];
+            // if (i == j) continue;
+            vec3 relPos = pos[i] - pos[j];
+            float dist2 = max(dot(relPos, relPos), 0.01f);
+            if (dist2 < PART_SIZE_2) {
+                float diff = PART_SIZE_2 - dist2;
+                density += (diff * diff * diff) /
+                    (PART_SIZE_2 * PART_SIZE_2 * PART_SIZE_2);
             }
         }
-        contactForces[i] = contactForce;
-
-        // contactForces[firstPart] += (vec3(
-        //     curand_uniform(&randStates[firstPart]),
-        //     curand_uniform(&randStates[firstPart]),
-        //     curand_uniform(&randStates[firstPart])
-        // ) - 0.5f) * 0.001f * length(contactForces[firstPart]);
+        densities[i] = density;
     }
 }
 
 __global__
-void update(
-    int numParts, vec3 minBound, vec3 maxBound,
-    vec3 *pos, vec3 *v, vec3 *contactForces, curandState_t *randStates) {
+void computeContactForces(
+    int numParts, vec3 *pos, vec3 *v,
+    int *numCollisions, int *homeChunks, int *cellTouchPartIds,
+    float *densities, vec3 *contactForces) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
-        pos[i] += v[i];
-        v[i].y = v[i].y + GRAVITY;
-        v[i] *= (1 - DRAG);
-        v[i] += contactForces[i];
-        // float vmag = length(v[i]);
-        // float VLIMIT = 0.1f;
-        // if (vmag > VLIMIT) v[i] = v[i] / vmag * VLIMIT;
-        // v[i] += (vec3(
-        //     curand_uniform(&randStates[i]),
-        //     curand_uniform(&randStates[i]),
-        //     curand_uniform(&randStates[i])
-        // ) - 0.5f) * 0.001f;
-        if (pos[i].x < minBound.x) {
-            pos[i].x = 2.0f * minBound.x - pos[i].x;
-            v[i].x *= -ELASTICITY;
+        int chunkStart = homeChunks[i];
+        int chunkSize = numCollisions[i];
+
+        float density = densities[i];
+        float pressure = DENSITY_OFFSET / GAMMA *
+            (pow(density / DENSITY_OFFSET, GAMMA) - 1.0f);
+        vec3 velocity = v[i];
+        vec3 contactForce(0.0f);
+        for (int chunkPos = 0; chunkPos < chunkSize; chunkPos++) {
+            int j = cellTouchPartIds[chunkStart + chunkPos];
+            if (i == j) continue;
+            vec3 relPos = pos[i] - pos[j];
+            float dist2 = max(dot(relPos, relPos), 0.01f);
+            if (dist2 < PART_SIZE_2) {
+                float diff = PART_SIZE_2 - dist2;
+                vec3 grad = 6.0f * (diff * diff) /
+                    (PART_SIZE_2 * PART_SIZE_2) *
+                    relPos / PART_SIZE;
+                float oDensity = densities[j];
+                float oPressure = DENSITY_OFFSET / GAMMA *
+                    (pow(oDensity - DENSITY_OFFSET, GAMMA) - 1.0f);
+                contactForce += (pressure + oPressure) / 2.0f /
+                    oDensity * grad *
+                    COLLISION_FORCE;
+                // contactForce += density *
+                //     (pressure / density / density +
+                //     oPressure / oDensity / oDensity) *
+                //     grad * COLLISION_FORCE;
+                contactForce -= (PART_SIZE - sqrt(dist2)) *
+                    (velocity - v[j]) *
+                    VISCOSITY;
+            }
         }
-        if (pos[i].x > maxBound.x) {
-            pos[i].x = 2.0f * maxBound.x - pos[i].x;
-            v[i].x *= -ELASTICITY;
-        }
-        if (pos[i].y < minBound.y) {
-            pos[i].y = 2.0f * minBound.y - pos[i].y;
-            v[i].y *= -ELASTICITY;
-        }
-        if (pos[i].y > maxBound.y) {
-            pos[i].y = 2.0f * maxBound.y - pos[i].y;
-            v[i].y *= -ELASTICITY;
-        }
-        if (pos[i].z < minBound.z) {
-            pos[i].z = 2.0f * minBound.z - pos[i].z;
-            v[i].z *= -ELASTICITY;
-        }
-        if (pos[i].z > maxBound.z) {
-            pos[i].z = 2.0f * maxBound.z - pos[i].z;
-            v[i].z *= -ELASTICITY;
-        }
+        contactForces[i] = contactForce;
     }
 }
 
@@ -298,10 +226,8 @@ void computeAccel(
     double t, float rotAmt) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
-    // static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
     for (int i = offset; i < numParts; i += stride) {
         vec3 contactForce = contactForces[i];
-        // accel[i] = - max(min(DRAG, DRAG * length(contactForce) / forceScale), DRAG / 2.0f) * v[i] + contactForce;
         accel[i] = - DRAG * v[i] + contactForce;
         accel[i] += GRAVITY * vec3(sin(rotAmt), cos(rotAmt), 0.0f);
     }
@@ -327,56 +253,68 @@ void advanceState(
 __global__
 void enforceBoundary(
     int numParts, vec3 minBound, vec3 maxBound, vec3 *pos, vec3 *v,
-    curandState_t *randStates) {
+    float *densities) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
-        // float vmag = length(v[i]);
-        // float VLIMIT = 0.1f;
-        // if (vmag > VLIMIT) v[i] = v[i] / vmag * VLIMIT;
-        // pos[i] += (vec3(
-        //     curand_uniform(&randStates[i]),
-        //     curand_uniform(&randStates[i]),
-        //     curand_uniform(&randStates[i])
-        // ) - 0.5f) * 0.01f;
-        if (pos[i].x < minBound.x) {
-            pos[i].x = 2.0f * minBound.x - pos[i].x;
-            v[i].x *= -ELASTICITY;
+        vec3 currPos = pos[i], currVel = v[i];
+        if (currPos.x < minBound.x) {
+            currPos.x = 2.0f * minBound.x - currPos.x;
+            currVel.x *= -BOUNDARY_ELASTICITY;
         }
-        if (pos[i].x > maxBound.x) {
-            pos[i].x = 2.0f * maxBound.x - pos[i].x;
-            v[i].x *= -ELASTICITY;
+        if (currPos.x > maxBound.x) {
+            currPos.x = 2.0f * maxBound.x - currPos.x;
+            currVel.x *= -BOUNDARY_ELASTICITY;
         }
-        if (pos[i].y < minBound.y) {
-            pos[i].y = 2.0f * minBound.y - pos[i].y;
-            v[i].y *= -ELASTICITY;
+        if (currPos.y < minBound.y) {
+            currPos.y = 2.0f * minBound.y - currPos.y;
+            currVel.y *= -BOUNDARY_ELASTICITY;
         }
-        if (pos[i].y > maxBound.y) {
-            pos[i].y = 2.0f * maxBound.y - pos[i].y;
-            v[i].y *= -ELASTICITY;
+        if (currPos.y > maxBound.y) {
+            currPos.y = 2.0f * maxBound.y - currPos.y;
+            currVel.y *= -BOUNDARY_ELASTICITY;
         }
-        if (pos[i].z < minBound.z) {
-            pos[i].z = 2.0f * minBound.z - pos[i].z;
-            v[i].z *= -ELASTICITY;
+        if (currPos.z < minBound.z) {
+            currPos.z = 2.0f * minBound.z - currPos.z;
+            currVel.z *= -BOUNDARY_ELASTICITY;
         }
-        if (pos[i].z > maxBound.z) {
-            pos[i].z = 2.0f * maxBound.z - pos[i].z;
-            v[i].z *= -ELASTICITY;
+        if (currPos.z > maxBound.z) {
+            currPos.z = 2.0f * maxBound.z - currPos.z;
+            currVel.z *= -BOUNDARY_ELASTICITY;
         }
+        float pressure = densities[i] - DENSITY_OFFSET;
         vec3 currForce(0.0f);
-        vec3 minBoundDist = pos[i] - minBound;
-        currForce += vec3(lessThan(minBoundDist, vec3(CELL_SIZE))) *
-            exp(-minBoundDist * minBoundDist / PART_SIZE_2) *
+        vec3 minBoundDist = currPos - minBound;
+        vec3 minBoundDist2 = minBoundDist * minBoundDist;
+        vec3 minDiff = PART_SIZE_2 - minBoundDist2;
+        vec3 minMask = vec3(lessThan(minBoundDist, vec3(PART_SIZE)));
+        currForce += minMask *
+            6.0f * (minDiff * minDiff) /
+            (PART_SIZE_2 * PART_SIZE_2) *
+            minBoundDist / PART_SIZE *
+            (pressure + BOUNDARY_PRESSURE) / 2.0f *
             COLLISION_FORCE;
-        vec3 maxBoundDist = maxBound - pos[i];
-        currForce -= vec3(lessThan(maxBoundDist, vec3(CELL_SIZE))) *
-            exp(-maxBoundDist * maxBoundDist / PART_SIZE_2) *
+        currForce -= minMask *
+            (PART_SIZE - sqrt(minBoundDist2)) *
+            currVel *
+            VISCOSITY;
+        vec3 maxBoundDist = maxBound - currPos;
+        vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
+        vec3 maxDiff = PART_SIZE_2 - maxBoundDist2;
+        vec3 maxMask = vec3(lessThan(maxBoundDist, vec3(PART_SIZE)));
+        currForce -= maxMask *
+            6.0f * (maxDiff * maxDiff) /
+            (PART_SIZE_2 * PART_SIZE_2) *
+            maxBoundDist / PART_SIZE *
+            (pressure + BOUNDARY_PRESSURE) / 2.0f *
             COLLISION_FORCE;
-        // static const float forceScale = COLLISION_FORCE * PART_SIZE_2;
-        // float forceSquared = dot(currForce, currForce);
-        // if (forceSquared > 0)
-        //     currForce += -1.0f / forceScale * dot(v[i], currForce) * currForce / forceSquared * VISCOSITY * 0.1f;
-        v[i] += currForce;
+        currForce -= maxMask *
+            (PART_SIZE - sqrt(maxBoundDist2)) *
+            currVel *
+            VISCOSITY;
+        currVel += currForce;
+        pos[i] = currPos;
+        v[i] = currVel;
     }
 }
 
@@ -394,6 +332,7 @@ SphCuda::~SphCuda() {
     cudaGraphicsUnmapResources(1, &vbo);
     cudaFree(velocities);
     cudaFree(contactForces);
+    cudaFree(densities);
 
     cudaFree(cellTouchHashes);
     cudaFree(cellTouchPartIds);
@@ -437,6 +376,7 @@ void SphCuda::Init(
 
     cudaMallocManaged(&velocities, numParts * sizeof(vec3));
     cudaMallocManaged(&contactForces, numParts * sizeof(vec3));
+    cudaMallocManaged(&densities, numParts * sizeof(float));
 
     // Each particle overlaps 8 cells
     cudaMalloc(&cellTouchHashes, 8 * numParts * sizeof(int));
@@ -510,7 +450,6 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     const int blockSizeChunks = 256;
     const int numBlocksChunks =
         (numChunks + blockSizeChunks - 1) / blockSizeChunks;
-    // CudaUtils::DebugPrint(chunkEnds, 16);
     countCollisions<<<numBlocksChunks, blockSizeChunks>>>(
         numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
         numCollisions, homeChunks);
@@ -518,8 +457,6 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
     computeAccelRK(rk1p, rk1v, rk1dv, currTime, rotAmt);
-
-    const static bool USE_RK4 = false;
 
     if (USE_RK4) {
         advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
@@ -536,7 +473,7 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
     }
 
     enforceBoundary<<<numBlocksParts, blockSize>>>(
-        numParts, minBound, maxBound, pos, velocities, randStates);
+        numParts, minBound, maxBound, pos, velocities, densities);
 
     nvtxRangePop();
 }
@@ -548,10 +485,14 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 void SphCuda::computeAccelRK(
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel,
     const double &t, const float &rotAmt) {
+    computePressures<<<numBlocksParts, blockSize>>>(
+        numParts, currPos, currVel,
+        numCollisions, homeChunks, cellTouchPartIds,
+        densities);
     computeContactForces<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel,
         numCollisions, homeChunks, cellTouchPartIds,
-        contactForces, randStates);
+        densities, contactForces);
     computeAccel<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel, contactForces, currAccel, t, rotAmt);
 }
