@@ -24,7 +24,7 @@ void SphEngine::Init() {
     // SPH INIT
 
     shaderProgram = ShaderManager::LoadShaders(
-        Shaders::VERT_DONOTHING,
+        Shaders::VERT_TRANSFERDENSITY,
         Shaders::FRAG_DRAWSPHERE,
         Shaders::GEOM_MAKEBILLBOARDS);
     glUseProgram(shaderProgram);
@@ -34,13 +34,16 @@ void SphEngine::Init() {
 
     GLuint posModelSpaceLocation =
         glGetAttribLocation(shaderProgram, "posModelSpace");
+    GLuint densityLocation =
+        glGetAttribLocation(shaderProgram, "density");
 
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glEnableVertexAttribArray(posModelSpaceLocation);
+    glEnableVertexAttribArray(densityLocation);
 
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glGenBuffers(1, &vboPos);
+    glBindBuffer(GL_ARRAY_BUFFER, vboPos);
     glVertexAttribPointer(
         posModelSpaceLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -57,7 +60,15 @@ void SphEngine::Init() {
     }
     glBufferData(
         GL_ARRAY_BUFFER, sizeof(initPos), initPos, GL_DYNAMIC_DRAW);
-    sphCuda.Init(NUM_PARTS, vbo, minBound, maxBound);
+
+    glGenBuffers(1, &vboDensities);
+    glBindBuffer(GL_ARRAY_BUFFER, vboDensities);
+    glVertexAttribPointer(
+        densityLocation, 1, GL_FLOAT, GL_FALSE, 0, 0);
+    glBufferData(
+        GL_ARRAY_BUFFER, NUM_PARTS * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+
+    sphCuda.Init(NUM_PARTS, vboPos, vboDensities, minBound, maxBound);
 
     vec3 *velocities = sphCuda.GetVelocitiesPtr();
     for (int i = 0; i < NUM_PARTS; i++) {

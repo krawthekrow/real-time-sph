@@ -14,7 +14,8 @@ class SphCuda {
 public:
     ~SphCuda();
     void Init(
-        const int &_numParts, const GLuint &vboGl,
+        const int &_numParts,
+        const GLuint &vboPosGl, const GLuint &vboDensitiesGl,
         const vec3 &_minBound, const vec3 &_maxBound);
     void Update(const double &currTime, const float &rotAmt);
     vec3 *GetVelocitiesPtr();
@@ -27,7 +28,8 @@ private:
     vec3 minBound, maxBound;
     ivec3 minBoundCell, maxBoundCell;
 
-    cudaGraphicsResource *vbo;
+    cudaGraphicsResource *vboPos;
+    cudaGraphicsResource *vboDensities;
 
     vec3 *pos;
     vec3 *velocities;

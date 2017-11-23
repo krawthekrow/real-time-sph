@@ -13,7 +13,7 @@ public:
     void IncDrawLimitZ(const float inc);
 
 private:
-    GLuint vao, vbo;
+    GLuint vao, vboPos, vboDensities;
     GLuint shaderProgram;
     GLuint mvLocation, pLocation;
     GLuint drawLimitZLocation;

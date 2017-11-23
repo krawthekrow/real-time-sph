@@ -39,7 +39,7 @@ using namespace glm;
 
 #define GRAVITY -0.0005f
 #define DRAG 0.0f
-#define VISCOSITY 0.01f
+#define VISCOSITY 0.01f // use 0.02f for 10000 particles
 #define BOUNDARY_ELASTICITY 1.0f
 #define COLLISION_FORCE 0.01f
 #define DENSITY_OFFSET 1.1f
@@ -47,7 +47,7 @@ using namespace glm;
 // Particle size (for physics) squared
 #define PART_SIZE (CELL_SIZE / 2.0f)
 #define PART_SIZE_2 (PART_SIZE * PART_SIZE)
-#define BOUNDARY_PRESSURE 0.6f
+#define BOUNDARY_PRESSURE 0.6f // use 1.6f for 10000 particles
 
 #define USE_RK4 false
 
@@ -199,6 +199,16 @@ void computeDensities(
     }
 }
 
+__device__
+float computePressure(float density) {
+    float normDensity = density / DENSITY_OFFSET;
+    // optimization for GAMMA = 2
+    return DENSITY_OFFSET / 2.0f *
+        (normDensity * normDensity - 1.0f);
+    // return DENSITY_OFFSET / GAMMA *
+    //     (pow(density / DENSITY_OFFSET, GAMMA) - 1.0f);
+}
+
 __global__
 void computeContactForces(
     int numParts, vec3 *pos, vec3 *v,
@@ -209,8 +219,7 @@ void computeContactForces(
     for (int i = offset; i < numParts; i += stride) {
         int chunkSize = numCollisions[i];
         float density = densities[i];
-        float pressure = DENSITY_OFFSET / GAMMA *
-            (pow(density / DENSITY_OFFSET, GAMMA) - 1.0f);
+        float pressure = computePressure(density);
         vec3 currPos = pos[i];
         vec3 velocity = v[i];
         vec3 contactForce(0.0f);
@@ -223,8 +232,7 @@ void computeContactForces(
                 (PART_SIZE_2 * PART_SIZE_2) *
                 relPos / PART_SIZE;
             float oDensity = densities[j];
-            float oPressure = DENSITY_OFFSET / GAMMA *
-                (pow(oDensity - DENSITY_OFFSET, GAMMA) - 1.0f);
+            float oPressure = computePressure(oDensity);
             contactForce += (pressure + oPressure) / 2.0f /
                 oDensity * grad *
                 COLLISION_FORCE;
@@ -349,10 +357,10 @@ void multAddVec3(int numParts, float multFactor,
 }
 
 SphCuda::~SphCuda() {
-    cudaGraphicsUnmapResources(1, &vbo);
+    cudaGraphicsUnmapResources(1, &vboPos);
+    cudaGraphicsUnmapResources(1, &vboDensities);
     cudaFree(velocities);
     cudaFree(contactForces);
-    cudaFree(densities);
 
     cudaFree(cellTouchHashes);
     cudaFree(cellTouchPartIds);
@@ -377,7 +385,8 @@ SphCuda::~SphCuda() {
 }
 
 void SphCuda::Init(
-    const int &_numParts, const GLuint &vboGl,
+    const int &_numParts,
+    const GLuint &vboPosGl, const GLuint &vboDensitiesGl,
     const vec3 &_minBound, const vec3 &_maxBound) {
     numParts = _numParts;
     minBound = _minBound;
@@ -388,15 +397,21 @@ void SphCuda::Init(
     blockSize = 256;
     numBlocksParts = (numParts + blockSize - 1) / blockSize;
 
-    cudaGraphicsGLRegisterBuffer(
-        &vbo, vboGl, cudaGraphicsRegisterFlagsNone);
-    cudaGraphicsMapResources(1, &vbo);
     size_t bufSize;
-    cudaGraphicsResourceGetMappedPointer((void**)&pos, &bufSize, vbo);
+
+    cudaGraphicsGLRegisterBuffer(
+        &vboPos, vboPosGl, cudaGraphicsRegisterFlagsNone);
+    cudaGraphicsMapResources(1, &vboPos);
+    cudaGraphicsResourceGetMappedPointer((void**)&pos, &bufSize, vboPos);
+
+    cudaGraphicsGLRegisterBuffer(
+        &vboDensities, vboDensitiesGl, cudaGraphicsRegisterFlagsNone);
+    cudaGraphicsMapResources(1, &vboDensities);
+    cudaGraphicsResourceGetMappedPointer(
+        (void**)&densities, &bufSize, vboDensities);
 
     cudaMallocManaged(&velocities, numParts * sizeof(vec3));
     cudaMallocManaged(&contactForces, numParts * sizeof(vec3));
-    cudaMallocManaged(&densities, numParts * sizeof(float));
 
     // Each particle overlaps 8 cells
     cudaMalloc(&cellTouchHashes, 8 * numParts * sizeof(int));

@@ -10,6 +10,7 @@ class CudaUtils {
 public:
     template <typename T>
     static void DebugPrint(T *arr, const int num);
+    static void CheckError();
 };
 
 template <typename T>

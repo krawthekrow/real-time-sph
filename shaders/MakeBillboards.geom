@@ -6,11 +6,12 @@ uniform mat4 P;
 uniform float drawLimitZ;
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
+in float vDensity[];
 out vec2 posBillboardSpace;
 out vec4 posCameraSpace;
+out float fSize;
 
 vec4 centerCameraSpace;
-float SIZE = 2;
 
 void emitRelPos(vec2 _posBillboardSpace){
     posBillboardSpace = _posBillboardSpace;
@@ -24,10 +25,14 @@ void main(){
     if(posModelSpace.z < drawLimitZ) return;
     centerCameraSpace = MV * posModelSpace;
 
-    emitRelPos(vec2(-SIZE, SIZE));
-    emitRelPos(vec2(-SIZE, -SIZE));
-    emitRelPos(vec2(SIZE, SIZE));
-    emitRelPos(vec2(SIZE, -SIZE));
+    float fDensity = vDensity[0];
+    fSize = mix(clamp(
+        pow(fDensity - 0.98f, 1.0f / 3.0f) * 1.0f,
+        0.0f, 0.7f), 0.0f, 4.0f);
+    emitRelPos(vec2(-fSize, fSize));
+    emitRelPos(vec2(-fSize, -fSize));
+    emitRelPos(vec2(fSize, fSize));
+    emitRelPos(vec2(fSize, -fSize));
     EndPrimitive();
 }
 )RAWSTR"
