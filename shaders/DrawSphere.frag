@@ -12,14 +12,14 @@ void main(){
     vec2 posBillboardSpaceXY = posBillboardSpace.xy;
     float rSq = dot(posBillboardSpaceXY, posBillboardSpaceXY);
     float fSizeSq = fSize * fSize;
-    float perpAdjustSq = fSizeSq - rSq;
-    if (perpAdjustSq < 0) discard;
+    float zAdjustSq = fSizeSq - rSq;
+    if (zAdjustSq < 0) discard;
     vec4 newPosCameraSpace =
-        posCameraSpace + vec4(0, 0, sqrt(perpAdjustSq), 0);
+        posCameraSpace + vec4(0, 0, sqrt(zAdjustSq), 0);
     vec4 posScreenSpace = P * newPosCameraSpace;
     gl_FragDepth = posScreenSpace.z / posScreenSpace.w;
 
     // color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    color = vec4(vec3(perpAdjustSq / (fSize * fSize)), 1.0f);
+    color = vec4(vec3(zAdjustSq / (fSize * fSize)), 1.0f);
 }
 )RAWSTR"

@@ -1,6 +1,8 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 
+#include "FluidRenderer.h"
+
 #include "SphCuda.h"
 
 using namespace glm;
@@ -10,13 +12,10 @@ public:
     void Init();
     void Update(
         const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime);
-    void IncDrawLimitZ(const float inc);
+    void IncDrawLimitZ(const float &inc);
 
 private:
-    GLuint vao, vboPos, vboDensities;
-    GLuint shaderProgram;
-    GLuint mvLocation, pLocation;
-    GLuint drawLimitZLocation;
+    FluidRenderer fluidRenderer;
 
     GLuint bbVao, bbVbo;
     GLuint bbProgram;
@@ -25,5 +24,4 @@ private:
     SphCuda sphCuda;
 
     vec3 minBound, maxBound;
-    float drawLimitZ;
 };

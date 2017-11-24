@@ -25,6 +25,7 @@ cuda_add_executable (main
     src/ProcGenEngine.cpp
     src/SphEngine.cpp
     src/SphCuda.cu
+    src/FluidRenderer.cpp
 )
 
 find_package (PkgConfig REQUIRED)

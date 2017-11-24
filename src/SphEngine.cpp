@@ -19,35 +19,7 @@ void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
     maxBound = vec3(25.0f, 25.0f, 25.0f);
 
-    drawLimitZ = minBound.z;
-
-    // SPH INIT
-
-    shaderProgram = ShaderManager::LoadShaders(
-        Shaders::VERT_TRANSFERDENSITY,
-        Shaders::FRAG_DRAWSPHERE,
-        Shaders::GEOM_MAKEBILLBOARDS);
-    glUseProgram(shaderProgram);
-    mvLocation = glGetUniformLocation(shaderProgram, "MV");
-    pLocation = glGetUniformLocation(shaderProgram, "P");
-    drawLimitZLocation = glGetUniformLocation(shaderProgram, "drawLimitZ");
-
-    GLuint posModelSpaceLocation =
-        glGetAttribLocation(shaderProgram, "posModelSpace");
-    GLuint densityLocation =
-        glGetAttribLocation(shaderProgram, "density");
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glEnableVertexAttribArray(posModelSpaceLocation);
-    glEnableVertexAttribArray(densityLocation);
-
-    glGenBuffers(1, &vboPos);
-    glBindBuffer(GL_ARRAY_BUFFER, vboPos);
-    glVertexAttribPointer(
-        posModelSpaceLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    GLfloat initPos[NUM_PARTS * 3];
+    GLfloat * const initPos = new GLfloat[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
         // vec3 pos = linearRand(minBound, maxBound);
         vec3 dims = maxBound - minBound;
@@ -58,17 +30,13 @@ void SphEngine::Init() {
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
     }
-    glBufferData(
-        GL_ARRAY_BUFFER, sizeof(initPos), initPos, GL_DYNAMIC_DRAW);
+    fluidRenderer.Init(NUM_PARTS, minBound, maxBound, initPos, minBound.z);
+    delete initPos;
 
-    glGenBuffers(1, &vboDensities);
-    glBindBuffer(GL_ARRAY_BUFFER, vboDensities);
-    glVertexAttribPointer(
-        densityLocation, 1, GL_FLOAT, GL_FALSE, 0, 0);
-    glBufferData(
-        GL_ARRAY_BUFFER, NUM_PARTS * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-
-    sphCuda.Init(NUM_PARTS, vboPos, vboDensities, minBound, maxBound);
+    sphCuda.Init(NUM_PARTS,
+        fluidRenderer.GetPositionsVbo(),
+        fluidRenderer.GetDensitiesVbo(),
+        minBound, maxBound);
 
     vec3 *velocities = sphCuda.GetVelocitiesPtr();
     for (int i = 0; i < NUM_PARTS; i++) {
@@ -127,15 +95,9 @@ void SphEngine::Update(
 
     mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
     mat4 rotMvMatrix = mvMatrix * rot;
+    fluidRenderer.Update(rotMvMatrix, pMatrix);
+
     const mat4 mvpMatrix = pMatrix * rotMvMatrix;
-
-    glUseProgram(shaderProgram);
-    glUniformMatrix4fv(mvLocation, 1, GL_FALSE, &rotMvMatrix[0][0]);
-    glUniformMatrix4fv(pLocation, 1, GL_FALSE, &pMatrix[0][0]);
-    glUniform1f(drawLimitZLocation, drawLimitZ);
-    glBindVertexArray(vao);
-    glDrawArrays(GL_POINTS, 0, NUM_PARTS);
-
     glUseProgram(bbProgram);
     glUniformMatrix4fv(bbMvpLocation, 1, GL_FALSE, &mvpMatrix[0][0]);
     glBindVertexArray(bbVao);
@@ -143,10 +105,6 @@ void SphEngine::Update(
     glDrawArrays(GL_LINES, 0, 2 * 12);
 }
 
-void SphEngine::IncDrawLimitZ(const float inc) {
-    drawLimitZ += inc;
-    if (drawLimitZ < minBound.z)
-        drawLimitZ = minBound.z;
-    if (drawLimitZ > maxBound.z)
-        drawLimitZ = maxBound.z;
+void SphEngine::IncDrawLimitZ(const float &inc) {
+    fluidRenderer.IncDrawLimitZ(inc);
 }
