@@ -32,12 +32,6 @@ private:
 
     // Z PREPASS
 
-    GLuint zPrepassDepthBuffer;
-    GLuint zPrepassDepthTex;
-    GLuint zPrepassFbo;
-
-    // Z PREPASS FIRST STAGE (DISC APPROXIMATION)
-
     GLuint zPrepassDiscProgram;
     GLuint zPrepassDiscVao;
 
@@ -45,26 +39,13 @@ private:
     GLuint zPrepassDiscPLocation;
     GLuint zPrepassDiscDrawLimitZLocation;
 
-    // Z PREPASS SECOND STAGE
-
-    GLuint zPrepassProgram;
-    GLuint zPrepassVao;
-
-    GLuint zPrepassMvLocation;
-    GLuint zPrepassPLocation;
-    GLuint zPrepassDrawLimitZLocation;
-
     // FLAT SPHERE
-
-    GLuint flatSphereFbo;
 
     GLuint flatSphereProgram;
     GLuint flatSphereVao;
 
-    GLuint flatSphereDepthTexLocation;
     GLuint flatSphereMvLocation;
     GLuint flatSpherePLocation;
-    GLuint flatSphereViewportScreenRatioLocation;
     GLuint flatSphereDrawLimitZLocation;
 
     vec3 minBound, maxBound;

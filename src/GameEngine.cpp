@@ -101,7 +101,8 @@ void GameEngine::SetViewportDimensions(const int width, const int height) {
         radians(45.0f),
         (float)viewportDimensions[0] / (float)viewportDimensions[1],
         // 100.0f, 200.0f);
-        0.1f, 10000.0f);
+        // 0.1f, 10000.0f);
+        0.01f, 1000.0f);
 
     sphEngine.SetViewportDimensions(viewportDimensions);
 }
