@@ -15,6 +15,7 @@ cuda_add_executable (main
     src/main.cpp
     src/GlfwUtils.cpp
     src/TextureUtils.cpp
+    src/TexturedQuadRenderer.cpp
     src/ShaderManager.cpp
     src/Camera.cpp
     src/FpsCounter.cpp

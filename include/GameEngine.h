@@ -29,6 +29,7 @@ private:
 
     double prevTime;
     bool mouseTogglePressed;
+    bool debugTogglePressed;
     ivec2 viewportDimensions;
 
     mat4 projectionMatrix;

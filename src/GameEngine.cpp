@@ -18,8 +18,9 @@ using namespace glm;
 static const double PI = acos(-1);
 
 GameEngine::GameEngine()
-    : camera(vec3(0.0f, 0.0f, -200.0f), 0, PI),
-      mouseTogglePressed(false) {
+    : camera(vec3(0.0f, 0.0f, -150.0f), 0, PI),
+      mouseTogglePressed(false),
+      debugTogglePressed(false) {
 }
 
 void GameEngine::Init(GLFWwindow *_window) {
@@ -70,12 +71,22 @@ void GameEngine::Update() {
             }
             mouseTogglePressed = true;
         }
-    } else if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_R)) {
-        sphEngine.IncDrawLimitZ(-0.5f);
-    } else if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_T)) {
-        sphEngine.IncDrawLimitZ(0.5f);
     } else {
         mouseTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_R)) {
+        sphEngine.IncDrawLimitZ(-0.5f);
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_T)) {
+        sphEngine.IncDrawLimitZ(0.5f);
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_Z)) {
+        if (!debugTogglePressed) {
+            sphEngine.ToggleDebugSwitch();
+            debugTogglePressed = true;
+        }
+    } else {
+        debugTogglePressed = false;
     }
 }
 
@@ -89,8 +100,10 @@ void GameEngine::SetViewportDimensions(const int width, const int height) {
     projectionMatrix = perspective(
         radians(45.0f),
         (float)viewportDimensions[0] / (float)viewportDimensions[1],
-        0.1f,
-        10000.0f);
+        // 100.0f, 200.0f);
+        0.1f, 10000.0f);
+
+    sphEngine.SetViewportDimensions(viewportDimensions);
 }
 
 void GameEngine::disableCursor() {

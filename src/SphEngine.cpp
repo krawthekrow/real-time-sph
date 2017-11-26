@@ -108,3 +108,11 @@ void SphEngine::Update(
 void SphEngine::IncDrawLimitZ(const float &inc) {
     fluidRenderer.IncDrawLimitZ(inc);
 }
+
+void SphEngine::ToggleDebugSwitch() {
+    fluidRenderer.ToggleDebugSwitch();
+}
+
+void SphEngine::SetViewportDimensions(const ivec2 &viewportDims) {
+    fluidRenderer.SetViewportDimensions(viewportDims);
+}

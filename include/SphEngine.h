@@ -13,6 +13,8 @@ public:
     void Update(
         const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime);
     void IncDrawLimitZ(const float &inc);
+    void ToggleDebugSwitch();
+    void SetViewportDimensions(const ivec2 &viewportDims);
 
 private:
     FluidRenderer fluidRenderer;
