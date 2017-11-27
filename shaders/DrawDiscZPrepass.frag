@@ -1,8 +1,6 @@
 R"RAWSTR(
 #version 420 core
 
-// layout(binding = 0, r32ui) uniform uimage2D depthImage;
-
 in vec2 posBillboardSpace;
 in vec4 posCameraSpace;
 in float fSize;
@@ -16,5 +14,7 @@ void main(){
     float fSizeSq = fSize * fSize;
     float zAdjustSq = fSizeSq - rSq;
     if (zAdjustSq < 0) discard;
+    // float depth = gl_FragCoord.z;
+    // color = vec4(vec3(depth - 0.99992f) * 20000.0f, 1.0f);
 }
 )RAWSTR"

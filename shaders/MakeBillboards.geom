@@ -14,11 +14,13 @@ uniform mat4 P;
 uniform float drawLimitZ;
 
 vec4 centerCameraSpace;
+float newZ;
 
 void emitRelPos(vec2 _posBillboardSpace){
     posBillboardSpace = _posBillboardSpace;
     posCameraSpace = centerCameraSpace + vec4(posBillboardSpace, 0, 0);
     gl_Position = P * posCameraSpace;
+    gl_Position.z = newZ * gl_Position.w;
     EmitVertex();
 }
 
@@ -28,12 +30,15 @@ void main(){
     centerCameraSpace = MV * posModelSpace;
 
     float fDensity = vDensity[0];
-    fSize = mix(clamp(
+    fSize = mix(0.0f, 4.0f, clamp(
         // pow(fDensity - 0.98f, 1.0f / 3.0f) * 1.0f,
         // (pow(fDensity, 0.4f) - 1.0f) * 2.2f + 0.2f,
         (pow(fDensity, 0.4f) - 1.0f) * 6.0f + 0.2f,
         // (pow(fDensity, 3.0f) - 1.0f) * 1.5f + 0.2f,
-        0.0f, 0.7f), 0.0f, 4.0f);
+        0.0f, 0.7f));
+    vec4 adjustedPos =
+        P * (centerCameraSpace + vec4(0.0f, 0.0f, fSize, 0.0f));
+    newZ = adjustedPos.z / adjustedPos.w;
 
     emitRelPos(vec2(-fSize, fSize));
     emitRelPos(vec2(-fSize, -fSize));

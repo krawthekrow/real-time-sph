@@ -15,10 +15,12 @@ FluidRenderer::FluidRenderer()
 
 void FluidRenderer::Init(
     const int &_numParts,
-    const vec3 &minBound, const vec3 &maxBound,
+    const vec3 &_minBound, const vec3 &_maxBound,
     GLfloat * const &initPos, const float &_drawLimitZ) {
     numParts = _numParts;
     drawLimitZ = _drawLimitZ;
+    minBound = _minBound;
+    maxBound = _maxBound;
 
     texturedQuadRenderer.Init();
 
@@ -124,6 +126,7 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     // FLAT SPHERE
+
     glDepthFunc(GL_LEQUAL);
 
     glUseProgram(flatSphereProgram);

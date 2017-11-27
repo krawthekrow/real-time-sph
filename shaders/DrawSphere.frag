@@ -3,7 +3,7 @@ R"RAWSTR(
 
 #extension GL_ARB_conservative_depth : enable
 
-layout (depth_less) out float gl_FragDepth;
+layout (depth_greater) out float gl_FragDepth;
 
 in vec2 posBillboardSpace;
 in vec4 posCameraSpace;
@@ -21,7 +21,8 @@ void main(){
     vec4 newPosCameraSpace =
         posCameraSpace + vec4(0, 0, sqrt(zAdjustSq), 0);
     vec4 newPosScreenSpace = P * newPosCameraSpace;
-    float depth = newPosScreenSpace.z / newPosScreenSpace.w;
+    float depth =
+        (newPosScreenSpace.z / newPosScreenSpace.w + 1.0f) / 2.0f;
     gl_FragDepth = depth;
     color = vec4(vec3(zAdjustSq / (fSize * fSize)), 1.0f);
 }
