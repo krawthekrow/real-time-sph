@@ -38,39 +38,6 @@ void FluidRenderer::Init(
         GL_ARRAY_BUFFER, numParts * sizeof(GLfloat),
         NULL, GL_DYNAMIC_DRAW);
 
-    // INIT Z PREPASS
-
-    zPrepassDiscProgram = ShaderManager::LoadShaders(
-        Shaders::VERT_TRANSFERDENSITY,
-        Shaders::FRAG_DRAWDISCZPREPASS,
-        Shaders::GEOM_MAKEBILLBOARDSZPREPASS);
-    glUseProgram(zPrepassDiscProgram);
-
-    zPrepassDiscMvLocation =
-        glGetUniformLocation(zPrepassDiscProgram, "MV");
-    zPrepassDiscPLocation =
-        glGetUniformLocation(zPrepassDiscProgram, "P");
-    zPrepassDiscDrawLimitZLocation =
-        glGetUniformLocation(zPrepassDiscProgram, "drawLimitZ");
-
-    const GLuint zPrepassDiscPosModelSpaceLocation =
-        glGetAttribLocation(zPrepassDiscProgram, "posModelSpace");
-    const GLuint zPrepassDiscDensityLocation =
-        glGetAttribLocation(zPrepassDiscProgram, "density");
-
-    glGenVertexArrays(1, &zPrepassDiscVao);
-    glBindVertexArray(zPrepassDiscVao);
-
-    glEnableVertexAttribArray(zPrepassDiscPosModelSpaceLocation);
-    glEnableVertexAttribArray(zPrepassDiscDensityLocation);
-
-    glBindBuffer(GL_ARRAY_BUFFER, posVbo);
-    glVertexAttribPointer(
-        zPrepassDiscPosModelSpaceLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, densitiesVbo);
-    glVertexAttribPointer(
-        zPrepassDiscDensityLocation, 1, GL_FLOAT, GL_FALSE, 0, 0);
-
     // INIT FLAT SPHERE
 
     flatSphereProgram = ShaderManager::LoadShaders(
@@ -109,21 +76,6 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
         TextureUtils::MAX_SCREEN_WIDTH,
         TextureUtils::MAX_SCREEN_HEIGHT) /
         vec2(viewportDims);
-
-    // Z PREPASS
-
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    glUseProgram(zPrepassDiscProgram);
-    glUniformMatrix4fv(zPrepassDiscMvLocation,
-        1, GL_FALSE, &mvMatrix[0][0]);
-    glUniformMatrix4fv(zPrepassDiscPLocation,
-        1, GL_FALSE, &pMatrix[0][0]);
-    glUniform1f(zPrepassDiscDrawLimitZLocation, drawLimitZ);
-    glBindVertexArray(zPrepassDiscVao);
-    glDrawArrays(GL_POINTS, 0, numParts);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     // FLAT SPHERE
 

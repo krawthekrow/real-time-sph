@@ -30,15 +30,6 @@ private:
 
     GLuint posVbo, densitiesVbo;
 
-    // Z PREPASS
-
-    GLuint zPrepassDiscProgram;
-    GLuint zPrepassDiscVao;
-
-    GLuint zPrepassDiscMvLocation;
-    GLuint zPrepassDiscPLocation;
-    GLuint zPrepassDiscDrawLimitZLocation;
-
     // FLAT SPHERE
 
     GLuint flatSphereProgram;
