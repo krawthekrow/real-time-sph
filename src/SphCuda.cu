@@ -39,7 +39,7 @@ using namespace glm;
 
 #define GRAVITY -0.0005f
 #define DRAG 0.0f
-#define VISCOSITY 0.01f // use 0.02f for 10000 particles
+#define VISCOSITY 0.03f // use 0.05f for 10000 particles
 #define BOUNDARY_ELASTICITY 1.0f
 #define COLLISION_FORCE 0.01f
 #define DENSITY_OFFSET 1.1f
@@ -191,9 +191,8 @@ void computeDensities(
             int j = collisions[i + chunkIndex * numParts];
             vec3 relPos = currPos - pos[j];
             float dist2 = dot(relPos, relPos);
-            float diff = PART_SIZE_2 - dist2;
-            density += (diff * diff * diff) /
-                (PART_SIZE_2 * PART_SIZE_2 * PART_SIZE_2);
+            float diff = 1 - dist2 / PART_SIZE_2;
+            density += diff * diff * diff;
         }
         densities[i] = density;
     }
@@ -227,9 +226,8 @@ void computeContactForces(
             int j = collisions[i + chunkIndex * numParts];
             vec3 relPos = currPos - pos[j];
             float dist2 = dot(relPos, relPos);
-            float diff = PART_SIZE_2 - dist2;
-            vec3 grad = 6.0f * (diff * diff) /
-                (PART_SIZE_2 * PART_SIZE_2) *
+            float diff = 1 - dist2 / PART_SIZE_2;
+            vec3 grad = 6.0f * diff * diff *
                 relPos / PART_SIZE;
             float oDensity = densities[j];
             float oPressure = computePressure(oDensity);
@@ -240,8 +238,8 @@ void computeContactForces(
             //     (pressure / density / density +
             //     oPressure / oDensity / oDensity) *
             //     grad * COLLISION_FORCE;
-            contactForce -= (PART_SIZE - sqrt(dist2)) *
-                (velocity - v[j]) *
+            contactForce -= (1 - sqrt(dist2) / PART_SIZE) *
+                (velocity - v[j]) / oDensity *
                 VISCOSITY;
         }
         contactForces[i] = contactForce;
@@ -310,35 +308,34 @@ void enforceBoundary(
             currPos.z = 2.0f * maxBound.z - currPos.z;
             currVel.z *= -BOUNDARY_ELASTICITY;
         }
-        float pressure = densities[i] - DENSITY_OFFSET;
+        float density = densities[i];
+        float pressure = computePressure(density);
         vec3 currForce(0.0f);
         vec3 minBoundDist = currPos - minBound;
         vec3 minBoundDist2 = minBoundDist * minBoundDist;
-        vec3 minDiff = PART_SIZE_2 - minBoundDist2;
+        vec3 minDiff = 1.0f - minBoundDist2 / PART_SIZE_2;
         vec3 minMask = vec3(lessThan(minBoundDist, vec3(PART_SIZE)));
         currForce += minMask *
-            6.0f * (minDiff * minDiff) /
-            (PART_SIZE_2 * PART_SIZE_2) *
+            6.0f * minDiff * minDiff *
             minBoundDist / PART_SIZE *
-            (pressure + BOUNDARY_PRESSURE) / 2.0f *
+            (pressure + 2.0f * (max(pressure, BOUNDARY_PRESSURE))) / 2.0f *
             COLLISION_FORCE;
         currForce -= minMask *
-            (PART_SIZE - sqrt(minBoundDist2)) *
-            currVel *
+            (1.0f - sqrt(minBoundDist2) / PART_SIZE) *
+            currVel / DENSITY_OFFSET *
             VISCOSITY;
         vec3 maxBoundDist = maxBound - currPos;
         vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
-        vec3 maxDiff = PART_SIZE_2 - maxBoundDist2;
+        vec3 maxDiff = 1.0f - maxBoundDist2 / PART_SIZE_2;
         vec3 maxMask = vec3(lessThan(maxBoundDist, vec3(PART_SIZE)));
         currForce -= maxMask *
-            6.0f * (maxDiff * maxDiff) /
-            (PART_SIZE_2 * PART_SIZE_2) *
+            6.0f * maxDiff * maxDiff *
             maxBoundDist / PART_SIZE *
-            (pressure + BOUNDARY_PRESSURE) / 2.0f *
+            (pressure + 2.0f * (max(pressure, BOUNDARY_PRESSURE))) / 2.0f *
             COLLISION_FORCE;
         currForce -= maxMask *
-            (PART_SIZE - sqrt(maxBoundDist2)) *
-            currVel *
+            (1.0f - sqrt(maxBoundDist2) / PART_SIZE) *
+            currVel / DENSITY_OFFSET *
             VISCOSITY;
         currVel += currForce;
         pos[i] = currPos;
@@ -459,8 +456,6 @@ void SphCuda::Init(
 }
 
 void SphCuda::Update(const double &currTime, const float &rotAmt) {
-    nvtxRangePushA("sim_update");
-
     generateCellHashes<<<numBlocksParts, blockSize>>>(
         numParts, minBoundCell, maxBoundCell,
         pos, cellTouchHashes, cellTouchPartIds);
@@ -489,7 +484,6 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
         numCollisions, homeChunks);
     findCollisions<<<numBlocksParts, blockSize>>>(numParts, pos,
         numCollisions, homeChunks, cellTouchPartIds, collisions);
-    thrust::device_ptr<int> it = thrust::max_element(numCollisionsPtr, numCollisionsPtr + numParts);
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
@@ -511,8 +505,6 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
 
     enforceBoundary<<<numBlocksParts, blockSize>>>(
         numParts, minBound, maxBound, pos, velocities, densities);
-
-    nvtxRangePop();
 }
 
 vec3 *SphCuda::GetVelocitiesPtr() {

@@ -9,11 +9,15 @@ using namespace glm;
 
 class SphEngine {
 public:
+    SphEngine();
+
     void Init();
     void Update(
-        const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime);
+        const mat4 &mvMatrix, const mat4 &pMatrix, const double &timeStep);
+
     void IncDrawLimitZ(const float &inc);
     void ToggleDebugSwitch();
+    void TogglePause();
     void SetViewportDimensions(const ivec2 &viewportDims);
 
 private:
@@ -26,4 +30,7 @@ private:
     SphCuda sphCuda;
 
     vec3 minBound, maxBound;
+
+    bool paused;
+    double currTime;
 };

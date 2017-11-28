@@ -15,6 +15,10 @@ using namespace glm;
 const int NUM_PARTS = 3000;
 const float ROT_RATE = 1000.0f;
 
+SphEngine::SphEngine()
+    : paused(true),
+      currTime(0.0) {}
+
 void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
     maxBound = vec3(25.0f, 25.0f, 25.0f);
@@ -89,9 +93,14 @@ void SphEngine::Init() {
 }
 
 void SphEngine::Update(
-    const mat4 &mvMatrix, const mat4 &pMatrix, const double &currTime) {
+    const mat4 &mvMatrix, const mat4 &pMatrix, const double &timeStep) {
+
     const float rotAmt = currTime / ROT_RATE;
-    sphCuda.Update(currTime, rotAmt);
+
+    if (!paused) {
+        currTime += timeStep;
+        sphCuda.Update(currTime, rotAmt);
+    }
 
     mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
     mat4 rotMvMatrix = mvMatrix * rot;
@@ -111,6 +120,10 @@ void SphEngine::IncDrawLimitZ(const float &inc) {
 
 void SphEngine::ToggleDebugSwitch() {
     fluidRenderer.ToggleDebugSwitch();
+}
+
+void SphEngine::TogglePause() {
+    paused = !paused;
 }
 
 void SphEngine::SetViewportDimensions(const ivec2 &viewportDims) {

@@ -57,7 +57,7 @@ void GameEngine::Update() {
     mat4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
     // procGenEngine.Update(mvpMatrix);
-    sphEngine.Update(mvMatrix, pMatrix, currentTime);
+    sphEngine.Update(mvMatrix, pMatrix, timeStep);
 
     cameraController.Update(timeStep);
 
@@ -87,6 +87,14 @@ void GameEngine::Update() {
         }
     } else {
         debugTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_PERIOD)) {
+        if (!pauseTogglePressed) {
+            sphEngine.TogglePause();
+            pauseTogglePressed = true;
+        }
+    } else {
+        pauseTogglePressed = false;
     }
 }
 
