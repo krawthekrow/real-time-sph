@@ -20,7 +20,9 @@ static const double PI = acos(-1);
 GameEngine::GameEngine()
     : camera(vec3(0.0f, 0.0f, -150.0f), 0, PI),
       mouseTogglePressed(false),
-      debugTogglePressed(false) {
+      debugTogglePressed(false),
+      pauseTogglePressed(false),
+      rotationTogglePressed(false) {
 }
 
 void GameEngine::Init(GLFWwindow *_window) {
@@ -87,6 +89,14 @@ void GameEngine::Update() {
         }
     } else {
         debugTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_COMMA)) {
+        if (!rotationTogglePressed) {
+            sphEngine.ToggleRotation();
+            rotationTogglePressed = true;
+        }
+    } else {
+        rotationTogglePressed = false;
     }
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_PERIOD)) {
         if (!pauseTogglePressed) {

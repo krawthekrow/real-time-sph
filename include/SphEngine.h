@@ -18,6 +18,7 @@ public:
     void IncDrawLimitZ(const float &inc);
     void ToggleDebugSwitch();
     void TogglePause();
+    void ToggleRotation();
     void SetViewportDimensions(const ivec2 &viewportDims);
 
 private:
@@ -32,7 +33,10 @@ private:
     vec3 minBound, maxBound;
 
     bool paused;
+    bool rotationPaused;
     double currTime;
 
     float rotAmt;
+
+    bool debugSwitch;
 };

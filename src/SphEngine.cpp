@@ -13,13 +13,16 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 0.1f;
+const float ROT_RATE = 1.0f;
 const float TIME_MULT = 500.0f;
+const float MAX_TIME_STEP = 1.0f;
 
 SphEngine::SphEngine()
     : paused(true),
+      rotationPaused(false),
       currTime(0.0),
-      rotAmt(0.0f) {}
+      rotAmt(0.0f),
+      debugSwitch(false) {}
 
 void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
@@ -97,11 +100,12 @@ void SphEngine::Init() {
 void SphEngine::Update(
     const mat4 &mvMatrix, const mat4 &pMatrix, const double &timeStep) {
 
-    const float simTimeStep = min((float)timeStep * TIME_MULT, 0.8f);
+    const float simTimeStep =
+        min((float)timeStep * TIME_MULT, MAX_TIME_STEP);
 
     if (!paused) {
         currTime += simTimeStep;
-        rotAmt += simTimeStep * ROT_RATE / TIME_MULT;
+        if (!rotationPaused) rotAmt += simTimeStep * ROT_RATE / TIME_MULT;
         sphCuda.Update(simTimeStep, rotAmt);
     }
 
@@ -122,11 +126,16 @@ void SphEngine::IncDrawLimitZ(const float &inc) {
 }
 
 void SphEngine::ToggleDebugSwitch() {
+    debugSwitch = !debugSwitch;
     fluidRenderer.ToggleDebugSwitch();
 }
 
 void SphEngine::TogglePause() {
     paused = !paused;
+}
+
+void SphEngine::ToggleRotation() {
+    rotationPaused = !rotationPaused;
 }
 
 void SphEngine::SetViewportDimensions(const ivec2 &viewportDims) {

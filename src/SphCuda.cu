@@ -48,6 +48,7 @@ using namespace glm;
 #define PART_SIZE (CELL_SIZE / 2.0f)
 #define PART_SIZE_2 (PART_SIZE * PART_SIZE)
 #define BOUNDARY_PRESSURE 0.6f // use 1.6f for 10000 particles
+#define BOUNDARY_VISCOSITY (VISCOSITY * 20.0f)
 
 #define USE_RK4 false
 
@@ -306,7 +307,7 @@ void computeBoundaryForces(
         currForce -= minMask *
             (1.0f - sqrt(minBoundDist2) / PART_SIZE) *
             currVel / DENSITY_OFFSET *
-            VISCOSITY;
+            BOUNDARY_VISCOSITY;
         vec3 maxBoundDist = maxBound - currPos;
         vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
         vec3 maxDiff = 1.0f - maxBoundDist2 / PART_SIZE_2;
@@ -319,7 +320,7 @@ void computeBoundaryForces(
         currForce -= maxMask *
             (1.0f - sqrt(maxBoundDist2) / PART_SIZE) *
             currVel / DENSITY_OFFSET *
-            VISCOSITY;
+            BOUNDARY_VISCOSITY;
         contactForces[i] += currForce;
     }
 }

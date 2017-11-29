@@ -31,6 +31,7 @@ private:
     bool mouseTogglePressed;
     bool debugTogglePressed;
     bool pauseTogglePressed;
+    bool rotationTogglePressed;
     ivec2 viewportDimensions;
 
     mat4 projectionMatrix;
