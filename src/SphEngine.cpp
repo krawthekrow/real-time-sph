@@ -13,7 +13,7 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 1.0f;
+const float ROT_RATE = 0.1f;
 const float TIME_MULT = 500.0f;
 
 SphEngine::SphEngine()
@@ -97,7 +97,7 @@ void SphEngine::Init() {
 void SphEngine::Update(
     const mat4 &mvMatrix, const mat4 &pMatrix, const double &timeStep) {
 
-    const float simTimeStep = min((float)timeStep * TIME_MULT, 1.0f);
+    const float simTimeStep = min((float)timeStep * TIME_MULT, 0.8f);
 
     if (!paused) {
         currTime += simTimeStep;

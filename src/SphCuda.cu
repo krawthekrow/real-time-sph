@@ -153,7 +153,7 @@ __global__
 void findCollisions(
     int numParts, vec3 *pos,
     int *numCollisions, int *homeChunks, int *cellTouchPartIds,
-    int *collisions) {
+    int *collisions, float *densities) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
@@ -161,42 +161,46 @@ void findCollisions(
         int chunkSize = numCollisions[i];
         int collisionIndex = 0;
         vec3 currPos = pos[i];
+        float density = 1.0f;
         for (int chunkPos = 0; chunkPos < chunkSize; chunkPos++) {
             int j = cellTouchPartIds[chunkStart + chunkPos];
             if (i == j) continue;
             vec3 relPos = currPos - pos[j];
             float dist2 = dot(relPos, relPos);
             if (dist2 < PART_SIZE_2) {
+                float diff = 1 - dist2 / PART_SIZE_2;
+                density += diff * diff * diff;
                 collisions[i + collisionIndex * numParts] = j;
                 collisionIndex++;
                 if (collisionIndex >= MAX_VALENCY) break;
             }
         }
+        densities[i] = density;
         numCollisions[i] = collisionIndex;
     }
 }
 
-__global__
-void computeDensities(
-    int numParts, vec3 *pos, vec3 *v,
-    int *numCollisions, int *collisions,
-    float *densities) {
-    int offset = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
-    for (int i = offset; i < numParts; i += stride) {
-        int chunkSize = numCollisions[i];
-        vec3 currPos = pos[i];
-        float density = 1.0f;
-        for (int chunkIndex = 0; chunkIndex < chunkSize; chunkIndex++) {
-            int j = collisions[i + chunkIndex * numParts];
-            vec3 relPos = currPos - pos[j];
-            float dist2 = dot(relPos, relPos);
-            float diff = 1 - dist2 / PART_SIZE_2;
-            density += diff * diff * diff;
-        }
-        densities[i] = density;
-    }
-}
+// __global__
+// void computeDensities(
+//     int numParts, vec3 *pos, vec3 *v,
+//     int *numCollisions, int *collisions,
+//     float *densities) {
+//     int offset = blockIdx.x * blockDim.x + threadIdx.x;
+//     int stride = blockDim.x * gridDim.x;
+//     for (int i = offset; i < numParts; i += stride) {
+//         int chunkSize = numCollisions[i];
+//         vec3 currPos = pos[i];
+//         float density = 1.0f;
+//         for (int chunkIndex = 0; chunkIndex < chunkSize; chunkIndex++) {
+//             int j = collisions[i + chunkIndex * numParts];
+//             vec3 relPos = currPos - pos[j];
+//             float dist2 = dot(relPos, relPos);
+//             float diff = 1 - dist2 / PART_SIZE_2;
+//             density += diff * diff * diff;
+//         }
+//         densities[i] = density;
+//     }
+// }
 
 __device__
 float computePressure(float density) {
@@ -297,7 +301,7 @@ void computeBoundaryForces(
         currForce += minMask *
             6.0f * minDiff * minDiff *
             minBoundDist / PART_SIZE *
-            (pressure + boundaryPressure) / 2.0f *
+            (pressure + boundaryPressure) / 2.0f / DENSITY_OFFSET *
             COLLISION_FORCE;
         currForce -= minMask *
             (1.0f - sqrt(minBoundDist2) / PART_SIZE) *
@@ -310,7 +314,7 @@ void computeBoundaryForces(
         currForce -= maxMask *
             6.0f * maxDiff * maxDiff *
             maxBoundDist / PART_SIZE *
-            (pressure + boundaryPressure) / 2.0f *
+            (pressure + boundaryPressure) / 2.0f / DENSITY_OFFSET *
             COLLISION_FORCE;
         currForce -= maxMask *
             (1.0f - sqrt(maxBoundDist2) / PART_SIZE) *
@@ -498,7 +502,8 @@ void SphCuda::Update(const double &timeStep, const float &rotAmt) {
         numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
         numCollisions, homeChunks);
     findCollisions<<<numBlocksParts, blockSize>>>(numParts, pos,
-        numCollisions, homeChunks, cellTouchPartIds, collisions);
+        numCollisions, homeChunks, cellTouchPartIds, collisions,
+        densities);
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
@@ -531,10 +536,10 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 void SphCuda::computeAccelRK(
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel,
     const double &timeStep, const float &rotAmt) {
-    computeDensities<<<numBlocksParts, blockSize>>>(
-        numParts, currPos, currVel,
-        numCollisions, collisions,
-        densities);
+    // computeDensities<<<numBlocksParts, blockSize>>>(
+    //     numParts, currPos, currVel,
+    //     numCollisions, collisions,
+    //     densities);
     computeContactForces<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel,
         numCollisions, collisions,
