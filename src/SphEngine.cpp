@@ -13,11 +13,13 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 1000.0f;
+const float ROT_RATE = 1.0f;
+const float TIME_MULT = 500.0f;
 
 SphEngine::SphEngine()
     : paused(true),
-      currTime(0.0) {}
+      currTime(0.0),
+      rotAmt(0.0f) {}
 
 void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
@@ -95,11 +97,12 @@ void SphEngine::Init() {
 void SphEngine::Update(
     const mat4 &mvMatrix, const mat4 &pMatrix, const double &timeStep) {
 
-    const float rotAmt = currTime / ROT_RATE;
+    const float simTimeStep = min((float)timeStep * TIME_MULT, 1.0f);
 
     if (!paused) {
-        currTime += timeStep;
-        sphCuda.Update(currTime, rotAmt);
+        currTime += simTimeStep;
+        rotAmt += simTimeStep * ROT_RATE / TIME_MULT;
+        sphCuda.Update(simTimeStep, rotAmt);
     }
 
     mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));

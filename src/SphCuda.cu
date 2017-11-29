@@ -249,13 +249,13 @@ void computeContactForces(
 __global__
 void computeAccel(
     int numParts, vec3 *pos, vec3 *v, vec3 *contactForces, vec3 *accel,
-    double t, float rotAmt) {
+    double timeStep, float rotAmt) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = offset; i < numParts; i += stride) {
         vec3 contactForce = contactForces[i];
-        accel[i] = - DRAG * v[i] + contactForce;
-        accel[i] += GRAVITY * vec3(sin(rotAmt), cos(rotAmt), 0.0f);
+        accel[i] = contactForce +
+            GRAVITY * vec3(sin(rotAmt), cos(rotAmt), 0.0f);
     }
 }
 
@@ -273,6 +273,50 @@ void advanceState(
         v[i] +=
             (rk1dv[i] + 2.0f * rk2dv[i] + 2.0f * rk3dv[i] + rk4dv[i]) /
             6.0f;
+    }
+}
+
+__global__
+void computeBoundaryForces(
+    int numParts, vec3 minBound, vec3 maxBound,
+    vec3 *pos, vec3 *v, float *densities, vec3 *contactForces) {
+    int offset = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = offset; i < numParts; i += stride) {
+        vec3 currPos = pos[i], currVel = v[i];
+        float density = densities[i];
+        float pressure = computePressure(density);
+        float boundaryPressure = 2.0f * max(pressure, BOUNDARY_PRESSURE);
+
+        vec3 currForce(0.0f);
+
+        vec3 minBoundDist = currPos - minBound;
+        vec3 minBoundDist2 = minBoundDist * minBoundDist;
+        vec3 minDiff = 1.0f - minBoundDist2 / PART_SIZE_2;
+        vec3 minMask = vec3(lessThan(minBoundDist, vec3(PART_SIZE)));
+        currForce += minMask *
+            6.0f * minDiff * minDiff *
+            minBoundDist / PART_SIZE *
+            (pressure + boundaryPressure) / 2.0f *
+            COLLISION_FORCE;
+        currForce -= minMask *
+            (1.0f - sqrt(minBoundDist2) / PART_SIZE) *
+            currVel / DENSITY_OFFSET *
+            VISCOSITY;
+        vec3 maxBoundDist = maxBound - currPos;
+        vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
+        vec3 maxDiff = 1.0f - maxBoundDist2 / PART_SIZE_2;
+        vec3 maxMask = vec3(lessThan(maxBoundDist, vec3(PART_SIZE)));
+        currForce -= maxMask *
+            6.0f * maxDiff * maxDiff *
+            maxBoundDist / PART_SIZE *
+            (pressure + boundaryPressure) / 2.0f *
+            COLLISION_FORCE;
+        currForce -= maxMask *
+            (1.0f - sqrt(maxBoundDist2) / PART_SIZE) *
+            currVel / DENSITY_OFFSET *
+            VISCOSITY;
+        contactForces[i] += currForce;
     }
 }
 
@@ -308,36 +352,7 @@ void enforceBoundary(
             currPos.z = 2.0f * maxBound.z - currPos.z;
             currVel.z *= -BOUNDARY_ELASTICITY;
         }
-        float density = densities[i];
-        float pressure = computePressure(density);
-        vec3 currForce(0.0f);
-        vec3 minBoundDist = currPos - minBound;
-        vec3 minBoundDist2 = minBoundDist * minBoundDist;
-        vec3 minDiff = 1.0f - minBoundDist2 / PART_SIZE_2;
-        vec3 minMask = vec3(lessThan(minBoundDist, vec3(PART_SIZE)));
-        currForce += minMask *
-            6.0f * minDiff * minDiff *
-            minBoundDist / PART_SIZE *
-            (pressure + 2.0f * (max(pressure, BOUNDARY_PRESSURE))) / 2.0f *
-            COLLISION_FORCE;
-        currForce -= minMask *
-            (1.0f - sqrt(minBoundDist2) / PART_SIZE) *
-            currVel / DENSITY_OFFSET *
-            VISCOSITY;
-        vec3 maxBoundDist = maxBound - currPos;
-        vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
-        vec3 maxDiff = 1.0f - maxBoundDist2 / PART_SIZE_2;
-        vec3 maxMask = vec3(lessThan(maxBoundDist, vec3(PART_SIZE)));
-        currForce -= maxMask *
-            6.0f * maxDiff * maxDiff *
-            maxBoundDist / PART_SIZE *
-            (pressure + 2.0f * (max(pressure, BOUNDARY_PRESSURE))) / 2.0f *
-            COLLISION_FORCE;
-        currForce -= maxMask *
-            (1.0f - sqrt(maxBoundDist2) / PART_SIZE) *
-            currVel / DENSITY_OFFSET *
-            VISCOSITY;
-        currVel += currForce;
+
         pos[i] = currPos;
         v[i] = currVel;
     }
@@ -455,7 +470,7 @@ void SphCuda::Init(
     cudaDeviceSynchronize();
 }
 
-void SphCuda::Update(const double &currTime, const float &rotAmt) {
+void SphCuda::Update(const double &timeStep, const float &rotAmt) {
     generateCellHashes<<<numBlocksParts, blockSize>>>(
         numParts, minBoundCell, maxBoundCell,
         pos, cellTouchHashes, cellTouchPartIds);
@@ -487,20 +502,22 @@ void SphCuda::Update(const double &currTime, const float &rotAmt) {
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;
-    computeAccelRK(rk1p, rk1v, rk1dv, currTime, rotAmt);
+    computeAccelRK(rk1p, rk1v, rk1dv, timeStep, rotAmt);
 
     if (USE_RK4) {
-        advanceStateRK(pos, velocities, 0.5f, rk1v, rk1dv, rk2p, rk2v);
-        computeAccelRK(rk2p, rk2v, rk2dv, currTime, rotAmt);
-        advanceStateRK(pos, velocities, 0.5f, rk2v, rk2dv, rk3p, rk3v);
-        computeAccelRK(rk3p, rk3v, rk3dv, currTime, rotAmt);
-        advanceStateRK(pos, velocities, 1.0f, rk3v, rk3dv, rk4p, rk4v);
-        computeAccelRK(rk4p, rk4v, rk4dv, currTime, rotAmt);
+        advanceStateRK(pos, velocities, 0.5f * timeStep,
+            rk1v, rk1dv, rk2p, rk2v);
+        computeAccelRK(rk2p, rk2v, rk2dv, timeStep, rotAmt);
+        advanceStateRK(pos, velocities, 0.5f * timeStep,
+            rk2v, rk2dv, rk3p, rk3v);
+        computeAccelRK(rk3p, rk3v, rk3dv, timeStep, rotAmt);
+        advanceStateRK(pos, velocities, timeStep, rk3v, rk3dv, rk4p, rk4v);
+        computeAccelRK(rk4p, rk4v, rk4dv, timeStep, rotAmt);
         advanceState<<<numBlocksParts, blockSize>>>(
             numParts, pos, velocities,
             rk1v, rk1dv, rk2v, rk2dv, rk3v, rk3dv, rk4v, rk4dv);
     } else {
-        advanceStateRK(pos, velocities, 1.0f, rk1v, rk1dv, pos, velocities);
+        advanceStateRK(pos, velocities, timeStep, rk1v, rk1dv, pos, velocities);
     }
 
     enforceBoundary<<<numBlocksParts, blockSize>>>(
@@ -513,7 +530,7 @@ vec3 *SphCuda::GetVelocitiesPtr() {
 
 void SphCuda::computeAccelRK(
     vec3 * const currPos, vec3 * const currVel, vec3 * const currAccel,
-    const double &t, const float &rotAmt) {
+    const double &timeStep, const float &rotAmt) {
     computeDensities<<<numBlocksParts, blockSize>>>(
         numParts, currPos, currVel,
         numCollisions, collisions,
@@ -522,8 +539,12 @@ void SphCuda::computeAccelRK(
         numParts, currPos, currVel,
         numCollisions, collisions,
         densities, contactForces);
+    computeBoundaryForces<<<numBlocksParts, blockSize>>>(
+        numParts, minBound, maxBound,
+        currPos, currVel, densities, contactForces);
     computeAccel<<<numBlocksParts, blockSize>>>(
-        numParts, currPos, currVel, contactForces, currAccel, t, rotAmt);
+        numParts, currPos, currVel, contactForces, currAccel,
+        timeStep, rotAmt);
 }
 
 void SphCuda::advanceStateRK(

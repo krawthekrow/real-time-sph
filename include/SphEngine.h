@@ -33,4 +33,6 @@ private:
 
     bool paused;
     double currTime;
+
+    float rotAmt;
 };

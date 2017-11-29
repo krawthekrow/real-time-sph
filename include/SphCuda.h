@@ -17,7 +17,7 @@ public:
         const int &_numParts,
         const GLuint &vboPosGl, const GLuint &vboDensitiesGl,
         const vec3 &_minBound, const vec3 &_maxBound);
-    void Update(const double &currTime, const float &rotAmt);
+    void Update(const double &timeStep, const float &rotAmt);
     vec3 *GetVelocitiesPtr();
 
 private:
