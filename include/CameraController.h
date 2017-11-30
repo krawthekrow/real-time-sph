@@ -9,7 +9,7 @@ class CameraController {
 public:
     CameraController();
     CameraController(GLFWwindow *_window, Camera *_camera);
-    void Update(const float timeStep);
+    void Update(const float &timeStep);
 
 private:
     GLFWwindow *window;

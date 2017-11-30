@@ -28,8 +28,8 @@ GameEngine::GameEngine()
 
 void GameEngine::Init(GLFWwindow *_window) {
     window = _window;
-    cameraController = CameraController(_window, &camera);
 
+    cameraController = CameraController(_window, &camera);
     disableCursor();
 
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);

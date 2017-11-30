@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
@@ -16,7 +17,7 @@ CameraController::CameraController(GLFWwindow *_window, Camera *_camera)
     camera = _camera;
 }
 
-void CameraController::Update(const float timeStep) {
+void CameraController::Update(const float &timeStep) {
     if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
         double cursorPos[2];
         glfwGetCursorPos(window, &cursorPos[0], &cursorPos[1]);

@@ -69,7 +69,9 @@ private:
 
     void computeAccelRK(
         vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel,
-        const double &t, const float &rotAmt);
+        const double &t, const float &rotAmt,
+        const mat4 &boundaryRotate, const mat4 &invBoundaryRotate,
+        const vec3 &boundaryTranslate);
     void advanceStateRK(
         vec3 *const currPos, vec3 *const currVel, const float timeStep,
         vec3 *const dpos, vec3 *const dvel,

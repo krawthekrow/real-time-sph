@@ -100,7 +100,7 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
 
     glBindFramebuffer(GL_FRAMEBUFFER, flatSphereFbo);
     glDepthFunc(GL_LEQUAL);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     // glStencilFunc(GL_ALWAYS, 1, 0xFF);
     // glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);

@@ -12,7 +12,7 @@
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 1.0f;
+const float ROT_RATE = 2.0f;
 const float TIME_MULT = 500.0f;
 const float MAX_TIME_STEP = 1.0f;
 
@@ -110,7 +110,7 @@ void SphEngine::Update(
 
     mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
     mat4 rotMvMatrix = mvMatrix * rot;
-    fluidRenderer.Update(rotMvMatrix, pMatrix);
+    fluidRenderer.Update(mvMatrix, pMatrix);
 
     const mat4 mvpMatrix = pMatrix * rotMvMatrix;
     glUseProgram(bbProgram);
