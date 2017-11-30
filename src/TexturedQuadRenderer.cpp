@@ -1,5 +1,5 @@
 #include <cstdio>
-#include <GL/glew.h>
+
 #include <glm/glm.hpp>
 
 #include "ShaderManager.h"

@@ -1,5 +1,4 @@
 #include "ShaderManager.h"
-#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <cstdio>
 #include <fstream>
