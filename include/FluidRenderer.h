@@ -39,6 +39,9 @@ private:
     GLuint flatSpherePLocation;
     GLuint flatSphereDrawLimitZLocation;
 
+    GLuint flatSphereFbo;
+    GLuint flatSphereDepthTex;
+
     vec3 minBound, maxBound;
     float drawLimitZ;
 

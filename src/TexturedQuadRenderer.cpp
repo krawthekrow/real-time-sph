@@ -28,6 +28,8 @@ void TexturedQuadRenderer::Init() {
     glUseProgram(program);
     quadPosLocation = glGetUniformLocation(program, "quadPos");
     quadDimsLocation = glGetUniformLocation(program, "quadDims");
+    colorOffsetLocation = glGetUniformLocation(program, "colorOffset");
+    colorScaleLocation = glGetUniformLocation(program, "colorScale");
     texLocation = glGetUniformLocation(program, "tex");
 
     const GLuint posLocation =
@@ -44,7 +46,8 @@ void TexturedQuadRenderer::Init() {
 }
 
 void TexturedQuadRenderer::Update(const GLuint &tex,
-    const vec2 &quadPos, const vec2 &quadDims) const {
+    const vec2 &quadPos, const vec2 &quadDims,
+    const float &colorOffset, const float &colorScale) const {
     glDisable(GL_DEPTH_TEST);
     glUseProgram(program);
     glActiveTexture(GL_TEXTURE0);
@@ -54,6 +57,8 @@ void TexturedQuadRenderer::Update(const GLuint &tex,
     glUniform1i(texLocation, 0);
     glUniform2fv(quadPosLocation, 1, &quadPos[0]);
     glUniform2fv(quadDimsLocation, 1, &quadDims[0]);
+    glUniform1f(colorOffsetLocation, colorOffset);
+    glUniform1f(colorScaleLocation, colorScale);
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glEnable(GL_DEPTH_TEST);

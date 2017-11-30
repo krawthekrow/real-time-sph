@@ -25,6 +25,7 @@ void main(){
         (newPosScreenSpace.z / newPosScreenSpace.w + 1.0f) / 2.0f;
     gl_FragDepth = depth;
     color = vec4(vec3((depth - 0.99992) * 20000.0f), 1.0f);
+    // gl_FragDepth = (depth - 0.99992) * 20000.0f;
     // color = vec4(vec3(zAdjustSq / (fSize * fSize)), 1.0f);
 }
 )RAWSTR"
