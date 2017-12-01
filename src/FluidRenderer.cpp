@@ -16,7 +16,8 @@ FluidRenderer::FluidRenderer()
 void FluidRenderer::Init(
     const int &_numParts,
     const vec3 &_minBound, const vec3 &_maxBound,
-    GLfloat * const &initPos, const float &_drawLimitZ) {
+    GLfloat * const &initPos, GLfloat * const &initDensities,
+    const float &_drawLimitZ) {
     numParts = _numParts;
     drawLimitZ = _drawLimitZ;
     minBound = _minBound;
@@ -37,7 +38,7 @@ void FluidRenderer::Init(
     glBindBuffer(GL_ARRAY_BUFFER, densitiesVbo);
     glBufferData(
         GL_ARRAY_BUFFER, numParts * sizeof(GLfloat),
-        NULL, GL_DYNAMIC_DRAW);
+        initDensities, GL_DYNAMIC_DRAW);
 
     // INIT FLAT SPHERE
 

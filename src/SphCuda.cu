@@ -313,7 +313,7 @@ void computeBoundaryForces(
 
         float density = densities[i];
         float pressure = computePressure(density);
-        float boundaryPressure = 1.0f * max(pressure, BOUNDARY_PRESSURE);
+        float boundaryPressure = max(pressure, BOUNDARY_PRESSURE);
 
         vec3 currForce(0.0f);
 

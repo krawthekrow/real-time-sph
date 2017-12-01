@@ -11,7 +11,8 @@ public:
 
     void Init(const int &_numParts,
         const vec3 &minBound, const vec3 &maxBound,
-        GLfloat * const &initPos, const float &_drawLimitZ);
+        GLfloat * const &initPos, GLfloat * const &initDensities,
+        const float &_drawLimitZ);
     void Update(const mat4 &mvMatrix, const mat4 &pMatrix) const;
 
     void IncDrawLimitZ(const float &inc);

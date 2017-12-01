@@ -38,8 +38,17 @@ void SphEngine::Init() {
         initPos[i * 3 + 1] = pos.y;
         initPos[i * 3 + 2] = pos.z;
     }
-    fluidRenderer.Init(NUM_PARTS, minBound, maxBound, initPos, minBound.z);
-    delete initPos;
+
+    GLfloat * const initDensities = new GLfloat[NUM_PARTS];
+    for (int i = 0; i < NUM_PARTS; i++) {
+        initDensities[i] = 2.0f;
+    }
+
+    fluidRenderer.Init(NUM_PARTS, minBound, maxBound,
+        initPos, initDensities, minBound.z);
+
+    delete[] initPos;
+    delete[] initDensities;
 
     sphCuda.Init(NUM_PARTS,
         fluidRenderer.GetPositionsVbo(),
