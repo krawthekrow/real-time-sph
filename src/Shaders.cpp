@@ -51,6 +51,9 @@ const char *Shaders::FRAG_DRAWTEXTUREWITHDEPTH =
 const char *Shaders::FRAG_RENDERFLUID =
 #include "RenderFluid.frag"
     ;
+const char *Shaders::FRAG_BILATERALFILTER =
+#include "BilateralFilter.frag"
+    ;
 const char *Shaders::COMP_NOISE3D =
 #include "Noise3D.comp"
     ;

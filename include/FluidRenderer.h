@@ -44,20 +44,33 @@ private:
     GLuint flatSphereFbo;
     GLuint flatSphereDepthTex;
 
+    // SMOOTH
+
+    GLuint smoothProgram;
+    GLuint smoothVao;
+
+    GLuint smoothQuadPosLocation;
+    GLuint smoothQuadDimsLocation;
+    GLuint smoothDepthTexLocation;
+
+    GLuint smoothFbo;
+    GLuint smoothDepthTex;
+
     // RENDER
 
     GLuint renderProgram;
     GLuint renderVao;
 
     GLuint renderPosLocation;
-    GLuint renderInvPLocation;
     GLuint renderQuadPosLocation;
     GLuint renderQuadDimsLocation;
-    GLuint renderTexLocation;
+    GLuint renderInvPLocation;
     GLuint renderDepthTexLocation;
 
     vec3 minBound, maxBound;
     float drawLimitZ;
 
     bool debugSwitch;
+
+    static GLuint createDepthTex(const vec2 &texDims);
 };

@@ -39,9 +39,7 @@ void main(){
         (dot(dy1, dy1) < dot(dy2, dy2)) ? dy1 : dy2));
 
     color = normal;
-    // color = abs(normalize(dx1));
     // color = vec3((texture(depthTex, texCoord + vec2(1.0f, 0.0f) / texDims).r - 0.99992) * 20000.0f);
-    // color = abs(normalize(dy1));
     gl_FragDepth = depth;
 }
 )RAWSTR"
