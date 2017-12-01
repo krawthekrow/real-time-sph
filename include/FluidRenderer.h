@@ -42,19 +42,19 @@ private:
     GLuint flatSphereDrawLimitZLocation;
 
     GLuint flatSphereFbo;
-    GLuint flatSphereColorTex;
     GLuint flatSphereDepthTex;
 
-    // FINAL DRAW
+    // RENDER
 
-    GLuint finalDrawProgram;
-    GLuint finalDrawVao;
+    GLuint renderProgram;
+    GLuint renderVao;
 
-    GLuint finalDrawPosLocation;
-    GLuint finalDrawQuadPosLocation;
-    GLuint finalDrawQuadDimsLocation;
-    GLuint finalDrawTexLocation;
-    GLuint finalDrawDepthTexLocation;
+    GLuint renderPosLocation;
+    GLuint renderInvPLocation;
+    GLuint renderQuadPosLocation;
+    GLuint renderQuadDimsLocation;
+    GLuint renderTexLocation;
+    GLuint renderDepthTexLocation;
 
     vec3 minBound, maxBound;
     float drawLimitZ;

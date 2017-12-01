@@ -75,30 +75,17 @@ void FluidRenderer::Init(
 
     glGenTextures(1, &flatSphereDepthTex);
     glBindTexture(GL_TEXTURE_2D, flatSphereDepthTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
         TextureUtils::MAX_SCREEN_WIDTH,
         TextureUtils::MAX_SCREEN_HEIGHT,
         0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glGenTextures(1, &flatSphereColorTex);
-    glBindTexture(GL_TEXTURE_2D, flatSphereColorTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F,
-        TextureUtils::MAX_SCREEN_WIDTH,
-        TextureUtils::MAX_SCREEN_HEIGHT,
-        0, GL_RED, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
     glGenFramebuffers(1, &flatSphereFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, flatSphereFbo);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-        flatSphereColorTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
         flatSphereDepthTex, 0);
-    GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(1, drawBuffers);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
         GL_FRAMEBUFFER_COMPLETE) {
         printf("Framebuffer error occurred.\n");
@@ -106,31 +93,41 @@ void FluidRenderer::Init(
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // INIT FINAL DRAW
+    // INIT RENDER
 
-    finalDrawProgram = ShaderManager::LoadShaders(
+    renderProgram = ShaderManager::LoadShaders(
         Shaders::VERT_POSITIONQUAD,
-        Shaders::FRAG_DRAWTEXTUREWITHDEPTH);
+        Shaders::FRAG_RENDERFLUID);
+    glUseProgram(renderProgram);
 
-    finalDrawQuadPosLocation =
-        glGetUniformLocation(finalDrawProgram, "quadPos");
-    finalDrawQuadDimsLocation =
-        glGetUniformLocation(finalDrawProgram, "quadDims");
-    finalDrawTexLocation = glGetUniformLocation(finalDrawProgram, "tex");
-    finalDrawDepthTexLocation =
-        glGetUniformLocation(finalDrawProgram, "depthTex");
+    renderInvPLocation =
+        glGetUniformLocation(renderProgram, "invP");
+    renderQuadPosLocation =
+        glGetUniformLocation(renderProgram, "quadPos");
+    renderQuadDimsLocation =
+        glGetUniformLocation(renderProgram, "quadDims");
+    renderTexLocation = glGetUniformLocation(renderProgram, "tex");
+    renderDepthTexLocation =
+        glGetUniformLocation(renderProgram, "depthTex");
 
-    const GLuint finalDrawPosLocation =
-        glGetAttribLocation(finalDrawProgram, "pos");
+    vec2 texDims = vec2(
+        TextureUtils::MAX_SCREEN_WIDTH,
+        TextureUtils::MAX_SCREEN_HEIGHT);
+    const GLuint renderTexDimsLocation =
+        glGetUniformLocation(renderProgram, "texDims");
+    glUniform2fv(renderTexDimsLocation, 1, &texDims[0]);
 
-    glGenVertexArrays(1, &finalDrawVao);
-    glBindVertexArray(finalDrawVao);
+    const GLuint renderPosLocation =
+        glGetAttribLocation(renderProgram, "pos");
 
-    glEnableVertexAttribArray(finalDrawPosLocation);
+    glGenVertexArrays(1, &renderVao);
+    glBindVertexArray(renderVao);
+
+    glEnableVertexAttribArray(renderPosLocation);
 
     glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
     glVertexAttribPointer(
-        finalDrawPosLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        renderPosLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
 
 void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
@@ -162,17 +159,18 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     const vec2 origin(0.0f);
+    const mat4 invPMatrix = inverse(pMatrix);
 
-    glUseProgram(finalDrawProgram);
-    glBindVertexArray(finalDrawVao);
-    glUniform2fv(finalDrawQuadPosLocation, 1, &origin[0]);
-    glUniform2fv(finalDrawQuadDimsLocation, 1, &viewportScreenRatio[0]);
+    // RENDER
+
+    glUseProgram(renderProgram);
+    glBindVertexArray(renderVao);
+    glUniformMatrix4fv(renderInvPLocation, 1, GL_FALSE, &invPMatrix[0][0]);
+    glUniform2fv(renderQuadPosLocation, 1, &origin[0]);
+    glUniform2fv(renderQuadDimsLocation, 1, &viewportScreenRatio[0]);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, flatSphereColorTex);
-    glUniform1i(finalDrawTexLocation, 0);
-    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, flatSphereDepthTex);
-    glUniform1i(finalDrawDepthTexLocation, 1);
+    glUniform1i(renderDepthTexLocation, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     // texturedQuadRenderer.Update(flatSphereDepthTex,

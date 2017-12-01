@@ -18,5 +18,6 @@ public:
     static const char *FRAG_DRAWSPHERE;
     static const char *FRAG_DRAWTEXTURE;
     static const char *FRAG_DRAWTEXTUREWITHDEPTH;
+    static const char *FRAG_RENDERFLUID;
     static const char *COMP_NOISE3D;
 };

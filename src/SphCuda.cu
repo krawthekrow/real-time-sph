@@ -46,7 +46,7 @@ using namespace glm;
 // Particle size (for physics) squared
 #define PART_SIZE (CELL_SIZE / 2.0f)
 #define PART_SIZE_2 (PART_SIZE * PART_SIZE)
-#define BOUNDARY_PRESSURE 0.6f // use 1.6f for 10000 particles
+#define BOUNDARY_PRESSURE 1.2f // use 1.6f for 10000 particles
 #define BOUNDARY_VISCOSITY (VISCOSITY * 10.0f)
 
 #define USE_RK4 false

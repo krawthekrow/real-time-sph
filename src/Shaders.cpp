@@ -48,6 +48,9 @@ const char *Shaders::FRAG_DRAWTEXTURE =
 const char *Shaders::FRAG_DRAWTEXTUREWITHDEPTH =
 #include "DrawTextureWithDepth.frag"
     ;
+const char *Shaders::FRAG_RENDERFLUID =
+#include "RenderFluid.frag"
+    ;
 const char *Shaders::COMP_NOISE3D =
 #include "Noise3D.comp"
     ;
