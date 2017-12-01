@@ -29,6 +29,7 @@ private:
     TexturedQuadRenderer texturedQuadRenderer;
 
     GLuint posVbo, densitiesVbo;
+    GLuint quadVbo;
 
     // FLAT SPHERE
 
@@ -40,7 +41,19 @@ private:
     GLuint flatSphereDrawLimitZLocation;
 
     GLuint flatSphereFbo;
+    GLuint flatSphereColorTex;
     GLuint flatSphereDepthTex;
+
+    // FINAL DRAW
+
+    GLuint finalDrawProgram;
+    GLuint finalDrawVao;
+
+    GLuint finalDrawPosLocation;
+    GLuint finalDrawQuadPosLocation;
+    GLuint finalDrawQuadDimsLocation;
+    GLuint finalDrawTexLocation;
+    GLuint finalDrawDepthTexLocation;
 
     vec3 minBound, maxBound;
     float drawLimitZ;

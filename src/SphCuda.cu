@@ -39,7 +39,7 @@ using namespace glm;
 #define GRAVITY -0.0005f
 #define DRAG 0.0f
 #define VISCOSITY 0.03f // use 0.05f for 10000 particles
-#define BOUNDARY_ELASTICITY 0.5f
+#define BOUNDARY_ELASTICITY 1.0f
 #define COLLISION_FORCE 0.01f
 #define DENSITY_OFFSET 1.1f
 #define GAMMA 2.0f
@@ -152,8 +152,9 @@ void countCollisions(
 
 __global__
 void findCollisions(
-    int numParts, vec3 *pos,
-    int *numCollisions, int *homeChunks, int *cellTouchPartIds,
+    int numParts, vec3 minBound, vec3 maxBound,
+    mat3 invBoundaryRotate, vec3 boundaryTranslate,
+    vec3 *pos, int *numCollisions, int *homeChunks, int *cellTouchPartIds,
     int *collisions, float *densities) {
     int offset = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -163,6 +164,20 @@ void findCollisions(
         int collisionIndex = 0;
         vec3 currPos = pos[i];
         float density = 1.0f;
+
+        // vec3 transformedPos =
+        //     invBoundaryRotate * (currPos - boundaryTranslate);
+        // vec3 minBoundDist = transformedPos - minBound;
+        // vec3 minBoundDist2 = minBoundDist * minBoundDist;
+        // vec3 minDiff = 1.0f - minBoundDist2 / PART_SIZE_2;
+        // vec3 minMask = vec3(lessThan(minBoundDist, vec3(PART_SIZE)));
+        // vec3 maxBoundDist = maxBound - transformedPos;
+        // vec3 maxBoundDist2 = maxBoundDist * maxBoundDist;
+        // vec3 maxDiff = 1.0f - maxBoundDist2 / PART_SIZE_2;
+        // vec3 maxMask = vec3(lessThan(maxBoundDist, vec3(PART_SIZE)));
+        // density += dot(minMask, minDiff * minDiff * minDiff) +
+        //     dot(maxMask, maxDiff * maxDiff * maxDiff);
+
         for (int chunkPos = 0; chunkPos < chunkSize; chunkPos++) {
             int j = cellTouchPartIds[chunkStart + chunkPos];
             if (i == j) continue;
@@ -298,7 +313,7 @@ void computeBoundaryForces(
 
         float density = densities[i];
         float pressure = computePressure(density);
-        float boundaryPressure = 2.0f * max(pressure, BOUNDARY_PRESSURE);
+        float boundaryPressure = 1.0f * max(pressure, BOUNDARY_PRESSURE);
 
         vec3 currForce(0.0f);
 
@@ -346,27 +361,27 @@ void enforceBoundary(
         vec3 currVel = invBoundaryRotate * v[i];
 
         if (currPos.x < minBound.x) {
-            currPos.x = 2.0f * minBound.x - currPos.x;
+            currPos.x = minBound.x + PART_SIZE;
             currVel.x *= -BOUNDARY_ELASTICITY;
         }
         if (currPos.x > maxBound.x) {
-            currPos.x = 2.0f * maxBound.x - currPos.x;
+            currPos.x = maxBound.x - PART_SIZE;
             currVel.x *= -BOUNDARY_ELASTICITY;
         }
         if (currPos.y < minBound.y) {
-            currPos.y = 2.0f * minBound.y - currPos.y;
+            currPos.y = minBound.y + PART_SIZE;
             currVel.y *= -BOUNDARY_ELASTICITY;
         }
         if (currPos.y > maxBound.y) {
-            currPos.y = 2.0f * maxBound.y - currPos.y;
+            currPos.y = maxBound.y - PART_SIZE;
             currVel.y *= -BOUNDARY_ELASTICITY;
         }
         if (currPos.z < minBound.z) {
-            currPos.z = 2.0f * minBound.z - currPos.z;
+            currPos.z = minBound.z + PART_SIZE;
             currVel.z *= -BOUNDARY_ELASTICITY;
         }
         if (currPos.z > maxBound.z) {
-            currPos.z = 2.0f * maxBound.z - currPos.z;
+            currPos.z = maxBound.z - PART_SIZE;
             currVel.z *= -BOUNDARY_ELASTICITY;
         }
 
@@ -492,9 +507,9 @@ void SphCuda::Update(const double &timeStep, const float &rotAmt) {
         numParts, minBoundCell, maxBoundCell,
         pos, cellTouchHashes, cellTouchPartIds);
 
-    mat4 boundaryRotate =
-        rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
-    mat4 invBoundaryRotate = inverse(boundaryRotate);
+    mat4 boundaryRotate = mat3(
+        rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f)));
+    mat3 invBoundaryRotate = inverse(boundaryRotate);
     vec3 boundaryTranslate(0.0f);
 
     // const int numCellTouches = thrust::copy_if(
@@ -521,9 +536,11 @@ void SphCuda::Update(const double &timeStep, const float &rotAmt) {
     countCollisions<<<numBlocksChunks, blockSizeChunks>>>(
         numChunks, chunkEnds, cellTouchHashes, cellTouchPartIds,
         numCollisions, homeChunks);
-    findCollisions<<<numBlocksParts, blockSize>>>(numParts, pos,
-        numCollisions, homeChunks, cellTouchPartIds, collisions,
-        densities);
+    findCollisions<<<numBlocksParts, blockSize>>>(numParts,
+        minBound, maxBound,
+        invBoundaryRotate, boundaryTranslate,
+        pos, numCollisions, homeChunks, cellTouchPartIds,
+        collisions, densities);
 
     vec3 *rk1p = pos;
     vec3 *rk1v = velocities;

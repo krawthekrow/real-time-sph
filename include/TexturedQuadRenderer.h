@@ -5,6 +5,8 @@ using namespace glm;
 
 class TexturedQuadRenderer {
 public:
+    static GLuint MakeQuadVbo();
+
     void Init();
     void Update(const GLuint &tex,
         const vec2 &quadPos, const vec2 &quadDims,
