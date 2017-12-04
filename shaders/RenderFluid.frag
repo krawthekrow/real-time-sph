@@ -2,15 +2,18 @@ R"RAWSTR(
 #version 330 core
 
 in vec2 texCoord;
-out vec3 color;
+out vec4 color;
 
+uniform vec2 quadDims;
 uniform vec2 texDims;
 uniform mat4 invP;
+uniform mat4 MV;
 
 uniform sampler2D depthTex;
 
 vec3 getPosCameraSpace(vec2 texCoord, float depth){
-    vec4 res = invP * vec4(vec3(texCoord, depth) * 2.0f - 1.0f, 1.0f);
+    vec4 res = invP *
+        vec4(vec3(texCoord * quadDims, depth) * 2.0f - 1.0f, 1.0f);
     return res.xyz / res.w;
 }
 
@@ -38,7 +41,23 @@ void main(){
         (dot(dx1, dx1) < dot(dx2, dx2)) ? dx1 : dx2,
         (dot(dy1, dy1) < dot(dy2, dy2)) ? dy1 : dy2));
 
-    color = normal;
+    vec3 viewDir = -normalize(posCameraSpace);
+    vec3 lightDir = normalize((MV * vec4(1.0f, 3.0f, 2.0f, 0.0f)).xyz);
+    vec3 halfDir = normalize(viewDir + lightDir);
+    vec3 reflectDir = reflect(-lightDir, normal);
+    bool lit = dot(lightDir, normal) > 0;
+
+    float R0 = 0.133f;
+    vec3 bgColor = vec3(0.529, 0.809, 0.922);
+    float fresnel = mix(pow(1.0f - dot(viewDir, halfDir), 5.0f),
+        1.0f, R0);
+    float specular = pow(max(0.0f, dot(reflectDir, viewDir)), 3.0f);
+    float diffuse = max(0.0f, dot(normal, lightDir));
+    float lightAmt =
+        lit ? min(1.0f, 0.0f * diffuse + 4.0f * fresnel * specular) : 0.0f;
+    // color = mix(vec3(0.3f, 0.5f, 0.8f) * bgColor, vec3(1.0f), lightAmt);
+    color = vec4(1.0f, 1.0f, 1.0f, lightAmt);
+    // color = normal;
     // color = vec3((texture(depthTex, texCoord + vec2(1.0f, 0.0f) / texDims).r - 0.99992) * 20000.0f);
     gl_FragDepth = depth;
 }

@@ -19,7 +19,7 @@ using namespace glm;
 static const double PI = acos(-1);
 
 GameEngine::GameEngine()
-    : camera(vec3(0.0f, 0.0f, -150.0f), 0, PI),
+    : camera(vec3(0.0f, 50.0f, -150.0f), -PI * 0.11f, PI),
       mouseTogglePressed(false),
       debugTogglePressed(false),
       pauseTogglePressed(false),
@@ -32,7 +32,8 @@ void GameEngine::Init(GLFWwindow *_window) {
     cameraController = CameraController(_window, &camera);
     disableCursor();
 
-    glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+    // glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+    glClearColor(0.529, 0.809, 0.922, 1.0f);
 
     // procGenEngine.Init();
     sphEngine.Init();

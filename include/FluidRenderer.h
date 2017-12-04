@@ -65,6 +65,7 @@ private:
     GLuint renderQuadPosLocation;
     GLuint renderQuadDimsLocation;
     GLuint renderInvPLocation;
+    GLuint renderMvLocation;
     GLuint renderDepthTexLocation;
 
     vec3 minBound, maxBound;

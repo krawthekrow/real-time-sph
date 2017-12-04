@@ -117,11 +117,12 @@ void SphEngine::Update(
         sphCuda.Update(simTimeStep, rotAmt);
     }
 
-    mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
-    mat4 rotMvMatrix = mvMatrix * rot;
+    const mat4 rot = rotate(mat4(1.0f), rotAmt, vec3(0.0f, 0.0f, 1.0f));
+    const mat4 rotMvMatrix = mvMatrix * rot;
+    const mat4 mvpMatrix = pMatrix * rotMvMatrix;
+
     fluidRenderer.Update(mvMatrix, pMatrix);
 
-    const mat4 mvpMatrix = pMatrix * rotMvMatrix;
     glUseProgram(bbProgram);
     glUniformMatrix4fv(bbMvpLocation, 1, GL_FALSE, &mvpMatrix[0][0]);
     glBindVertexArray(bbVao);

@@ -159,6 +159,8 @@ void FluidRenderer::Init(
         glGetUniformLocation(renderProgram, "quadDims");
     renderInvPLocation =
         glGetUniformLocation(renderProgram, "invP");
+    renderMvLocation =
+        glGetUniformLocation(renderProgram, "MV");
     renderDepthTexLocation =
         glGetUniformLocation(renderProgram, "depthTex");
 
@@ -228,15 +230,22 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
 
     // RENDER
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glUseProgram(renderProgram);
     glBindVertexArray(renderVao);
     glUniform2fv(renderQuadPosLocation, 1, &origin[0]);
     glUniform2fv(renderQuadDimsLocation, 1, &viewportScreenRatio[0]);
     glUniformMatrix4fv(renderInvPLocation, 1, GL_FALSE, &invPMatrix[0][0]);
+    glUniformMatrix4fv(renderMvLocation, 1, GL_FALSE,
+        &mvMatrix[0][0]);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, smoothDepthTex);
     glUniform1i(renderDepthTexLocation, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisable(GL_BLEND);
 
     // texturedQuadRenderer.Update(flatSphereDepthTex,
     //     vec2(0.0f), viewportScreenRatio,
