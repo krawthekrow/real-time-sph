@@ -27,6 +27,11 @@ void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
     maxBound = vec3(25.0f, 25.0f, 25.0f);
 
+    // glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	// glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    // glClearColor(0.529f, 0.809f, 0.922f, 1.0f);
+    glClearColor(0.4f, 0.7f, 0.9f, 1.0f);
+
     GLfloat * const initPos = new GLfloat[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
         // vec3 pos = linearRand(minBound, maxBound);

@@ -32,9 +32,6 @@ void GameEngine::Init(GLFWwindow *_window) {
     cameraController = CameraController(_window, &camera);
     disableCursor();
 
-    // glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-    glClearColor(0.529, 0.809, 0.922, 1.0f);
-
     // procGenEngine.Init();
     sphEngine.Init();
 
