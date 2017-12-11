@@ -5,13 +5,13 @@
 #include "ShaderManager.h"
 #include "Shaders.h"
 #include "TextureUtils.h"
+#include "GlobalDebugSwitches.h"
 
 #include "FluidRenderer.h"
 
 using namespace glm;
 
-FluidRenderer::FluidRenderer()
-    : debugSwitch(false) {}
+FluidRenderer::FluidRenderer() {}
 
 GLuint FluidRenderer::createDepthTex(const vec2 &texDims) {
     GLuint depthTex;
@@ -255,6 +255,9 @@ void FluidRenderer::Init(
 
 void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     const {
+
+    if (GlobalDebugSwitches::renderSwitch) return;
+
     vec2 viewportScreenRatio = vec2(
         TextureUtils::MAX_SCREEN_WIDTH,
         TextureUtils::MAX_SCREEN_HEIGHT) /
@@ -280,7 +283,7 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glBindVertexArray(flatSphereVao);
     glDrawArrays(GL_POINTS, 0, numParts);
 
-    if (!debugSwitch) {
+    if (!GlobalDebugSwitches::smoothSwitch) {
         // SMOOTH
 
         glDepthFunc(GL_ALWAYS);
@@ -330,15 +333,20 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
         &mvMatrix[0][0]);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D,
-        debugSwitch ? flatSphereDepthTex : smoothHorzDepthTex);
+        GlobalDebugSwitches::smoothSwitch ?
+        flatSphereDepthTex : smoothHorzDepthTex);
     glUniform1i(renderDepthTexLocation, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     glDisable(GL_BLEND);
 
-    // texturedQuadRenderer.Update(flatSphereDepthTex,
-    //     vec2(0.0f), viewportScreenRatio,
-    //     -0.99992, 20000.0f);
+    if (GlobalDebugSwitches::depthSwitch) {
+        texturedQuadRenderer.Update(
+            GlobalDebugSwitches::smoothSwitch ?
+            flatSphereDepthTex : smoothHorzDepthTex,
+            vec2(0.0f), viewportScreenRatio,
+            -0.9992, 2000.0f);
+    }
 
     // glDisable(GL_STENCIL_TEST);
 }
@@ -349,10 +357,6 @@ void FluidRenderer::IncDrawLimitZ(const float &inc) {
         drawLimitZ = minBound.z;
     if (drawLimitZ > maxBound.z)
         drawLimitZ = maxBound.z;
-}
-
-void FluidRenderer::ToggleDebugSwitch() {
-    debugSwitch = !debugSwitch;
 }
 
 GLuint FluidRenderer::GetPositionsVbo() const {

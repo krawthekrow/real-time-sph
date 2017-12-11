@@ -20,8 +20,7 @@ SphEngine::SphEngine()
     : paused(true),
       rotationPaused(false),
       currTime(0.0),
-      rotAmt(0.0f),
-      debugSwitch(false) {}
+      rotAmt(0.0f) {}
 
 void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
@@ -137,11 +136,6 @@ void SphEngine::Update(
 
 void SphEngine::IncDrawLimitZ(const float &inc) {
     fluidRenderer.IncDrawLimitZ(inc);
-}
-
-void SphEngine::ToggleDebugSwitch() {
-    debugSwitch = !debugSwitch;
-    fluidRenderer.ToggleDebugSwitch();
 }
 
 void SphEngine::TogglePause() {

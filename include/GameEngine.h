@@ -29,7 +29,9 @@ private:
 
     double prevTime;
     bool mouseTogglePressed;
-    bool debugTogglePressed;
+    bool smoothTogglePressed;
+    bool depthTogglePressed;
+    bool renderTogglePressed;
     bool pauseTogglePressed;
     bool rotationTogglePressed;
     ivec2 viewportDimensions;

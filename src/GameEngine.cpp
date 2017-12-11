@@ -10,6 +10,7 @@
 #include "ShaderManager.h"
 #include "Shaders.h"
 #include "TextureUtils.h"
+#include "GlobalDebugSwitches.h"
 
 #include "GameEngine.h"
 
@@ -21,7 +22,9 @@ static const double PI = acos(-1);
 GameEngine::GameEngine()
     : camera(vec3(0.0f, 50.0f, -150.0f), -PI * 0.11f, PI),
       mouseTogglePressed(false),
-      debugTogglePressed(false),
+      smoothTogglePressed(false),
+      depthTogglePressed(false),
+      renderTogglePressed(false),
       pauseTogglePressed(false),
       rotationTogglePressed(false) {
 }
@@ -82,12 +85,31 @@ void GameEngine::Update() {
         sphEngine.IncDrawLimitZ(0.5f);
     }
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_Z)) {
-        if (!debugTogglePressed) {
-            sphEngine.ToggleDebugSwitch();
-            debugTogglePressed = true;
+        if (!smoothTogglePressed) {
+            GlobalDebugSwitches::smoothSwitch =
+                !GlobalDebugSwitches::smoothSwitch;
+            smoothTogglePressed = true;
         }
     } else {
-        debugTogglePressed = false;
+        smoothTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_X)) {
+        if (!depthTogglePressed) {
+            GlobalDebugSwitches::depthSwitch =
+                !GlobalDebugSwitches::depthSwitch;
+            depthTogglePressed = true;
+        }
+    } else {
+        depthTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_C)) {
+        if (!renderTogglePressed) {
+            GlobalDebugSwitches::renderSwitch =
+                !GlobalDebugSwitches::renderSwitch;
+            renderTogglePressed = true;
+        }
+    } else {
+        renderTogglePressed = false;
     }
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_COMMA)) {
         if (!rotationTogglePressed) {

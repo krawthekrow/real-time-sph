@@ -16,7 +16,6 @@ public:
     void Update(const mat4 &mvMatrix, const mat4 &pMatrix) const;
 
     void IncDrawLimitZ(const float &inc);
-    void ToggleDebugSwitch();
 
     GLuint GetPositionsVbo() const;
     GLuint GetDensitiesVbo() const;
@@ -94,8 +93,6 @@ private:
 
     vec3 minBound, maxBound;
     float drawLimitZ;
-
-    bool debugSwitch;
 
     static GLuint createDepthTex(const vec2 &texDims);
     static GLuint createDepthFbo(const vec2 &texDims, GLuint &depthTex);
