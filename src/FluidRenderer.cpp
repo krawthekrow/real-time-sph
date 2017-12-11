@@ -25,6 +25,26 @@ GLuint FluidRenderer::createDepthTex(const vec2 &texDims) {
     return depthTex;
 }
 
+GLuint FluidRenderer::createDepthFbo(
+    const vec2 &texDims, GLuint& depthTex) {
+
+    depthTex = createDepthTex(texDims);
+
+    GLuint depthFbo;
+    glGenFramebuffers(1, &depthFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthFbo);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+        depthTex, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
+        GL_FRAMEBUFFER_COMPLETE) {
+        printf("Framebuffer error occurred.\n");
+        exit(0);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return depthFbo;
+}
+
 void FluidRenderer::Init(
     const int &_numParts,
     const vec3 &_minBound, const vec3 &_maxBound,
@@ -131,20 +151,72 @@ void FluidRenderer::Init(
     glVertexAttribPointer(
         smoothPosLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
+    // INIT SMOOTH VERT
+
+    smoothVertProgram = ShaderManager::LoadShaders(
+        Shaders::VERT_POSITIONQUAD,
+        Shaders::FRAG_BILATERALFILTERVERT);
+    glUseProgram(smoothVertProgram);
+
+    smoothVertQuadPosLocation =
+        glGetUniformLocation(smoothVertProgram, "quadPos");
+    smoothVertQuadDimsLocation =
+        glGetUniformLocation(smoothVertProgram, "quadDims");
+    smoothVertDepthTexLocation =
+        glGetUniformLocation(smoothVertProgram, "depthTex");
+
+    const GLuint smoothVertTexDimsLocation =
+        glGetUniformLocation(smoothVertProgram, "texDims");
+    glUniform2fv(smoothVertTexDimsLocation, 1, &screenTexDims[0]);
+
+    const GLuint smoothVertPosLocation =
+        glGetAttribLocation(smoothVertProgram, "pos");
+
+    glGenVertexArrays(1, &smoothVertVao);
+    glBindVertexArray(smoothVertVao);
+
+    glEnableVertexAttribArray(smoothVertPosLocation);
+
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glVertexAttribPointer(
+        smoothVertPosLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    // INIT SMOOTH HORZ
+
+    smoothHorzProgram = ShaderManager::LoadShaders(
+        Shaders::VERT_POSITIONQUAD,
+        Shaders::FRAG_BILATERALFILTERHORZ);
+    glUseProgram(smoothHorzProgram);
+
+    smoothHorzQuadPosLocation =
+        glGetUniformLocation(smoothHorzProgram, "quadPos");
+    smoothHorzQuadDimsLocation =
+        glGetUniformLocation(smoothHorzProgram, "quadDims");
+    smoothHorzDepthTexLocation =
+        glGetUniformLocation(smoothHorzProgram, "depthTex");
+
+    const GLuint smoothHorzTexDimsLocation =
+        glGetUniformLocation(smoothHorzProgram, "texDims");
+    glUniform2fv(smoothHorzTexDimsLocation, 1, &screenTexDims[0]);
+
+    const GLuint smoothHorzPosLocation =
+        glGetAttribLocation(smoothHorzProgram, "pos");
+
+    glGenVertexArrays(1, &smoothHorzVao);
+    glBindVertexArray(smoothHorzVao);
+
+    glEnableVertexAttribArray(smoothHorzPosLocation);
+
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glVertexAttribPointer(
+        smoothHorzPosLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
     // INIT SMOOTH FBO
 
-    smoothDepthTex = createDepthTex(screenTexDims);
-
-    glGenFramebuffers(1, &smoothFbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, smoothFbo);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-        smoothDepthTex, 0);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
-        GL_FRAMEBUFFER_COMPLETE) {
-        printf("Framebuffer error occurred.\n");
-        exit(0);
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    smoothFbo1 = createDepthFbo(screenTexDims, smoothDepthTex1);
+    smoothFbo2 = createDepthFbo(screenTexDims, smoothDepthTex2);
+    smoothVertFbo = createDepthFbo(screenTexDims, smoothVertDepthTex);
+    smoothHorzFbo = createDepthFbo(screenTexDims, smoothHorzDepthTex);
 
     // INIT RENDER
 
@@ -208,21 +280,37 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glBindVertexArray(flatSphereVao);
     glDrawArrays(GL_POINTS, 0, numParts);
 
-    // SMOOTH
+    if (!debugSwitch) {
+        // SMOOTH
 
-    glBindFramebuffer(GL_FRAMEBUFFER, smoothFbo);
-    glDepthFunc(GL_ALWAYS);
+        glDepthFunc(GL_ALWAYS);
 
-    glClear(GL_DEPTH_BUFFER_BIT);
+        glBindFramebuffer(GL_FRAMEBUFFER, smoothVertFbo);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(smoothProgram);
-    glBindVertexArray(smoothVao);
-    glUniform2fv(smoothQuadPosLocation, 1, &origin[0]);
-    glUniform2fv(smoothQuadDimsLocation, 1, &viewportScreenRatio[0]);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, flatSphereDepthTex);
-    glUniform1i(smoothDepthTexLocation, 0);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glUseProgram(smoothVertProgram);
+        glBindVertexArray(smoothVertVao);
+        glUniform2fv(smoothVertQuadPosLocation, 1, &origin[0]);
+        glUniform2fv(smoothVertQuadDimsLocation, 1,
+            &viewportScreenRatio[0]);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, flatSphereDepthTex);
+        glUniform1i(smoothVertDepthTexLocation, 0);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, smoothHorzFbo);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        glUseProgram(smoothHorzProgram);
+        glBindVertexArray(smoothHorzVao);
+        glUniform2fv(smoothHorzQuadPosLocation, 1, &origin[0]);
+        glUniform2fv(smoothHorzQuadDimsLocation, 1,
+            &viewportScreenRatio[0]);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, smoothVertDepthTex);
+        glUniform1i(smoothHorzDepthTexLocation, 0);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
 
     glDepthFunc(GL_LESS);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -241,7 +329,8 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glUniformMatrix4fv(renderMvLocation, 1, GL_FALSE,
         &mvMatrix[0][0]);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, smoothDepthTex);
+    glBindTexture(GL_TEXTURE_2D,
+        debugSwitch ? flatSphereDepthTex : smoothHorzDepthTex);
     glUniform1i(renderDepthTexLocation, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 

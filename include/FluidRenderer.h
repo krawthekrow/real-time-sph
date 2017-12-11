@@ -53,8 +53,32 @@ private:
     GLuint smoothQuadDimsLocation;
     GLuint smoothDepthTexLocation;
 
-    GLuint smoothFbo;
-    GLuint smoothDepthTex;
+    GLuint smoothFbo1, smoothFbo2;
+    GLuint smoothDepthTex1, smoothDepthTex2;
+
+    // SMOOTH VERT
+
+    GLuint smoothVertProgram;
+    GLuint smoothVertVao;
+
+    GLuint smoothVertQuadPosLocation;
+    GLuint smoothVertQuadDimsLocation;
+    GLuint smoothVertDepthTexLocation;
+
+    GLuint smoothVertFbo;
+    GLuint smoothVertDepthTex;
+
+    // SMOOTH HORZ
+
+    GLuint smoothHorzProgram;
+    GLuint smoothHorzVao;
+
+    GLuint smoothHorzQuadPosLocation;
+    GLuint smoothHorzQuadDimsLocation;
+    GLuint smoothHorzDepthTexLocation;
+
+    GLuint smoothHorzFbo;
+    GLuint smoothHorzDepthTex;
 
     // RENDER
 
@@ -74,4 +98,5 @@ private:
     bool debugSwitch;
 
     static GLuint createDepthTex(const vec2 &texDims);
+    static GLuint createDepthFbo(const vec2 &texDims, GLuint &depthTex);
 };

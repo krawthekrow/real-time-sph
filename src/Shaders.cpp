@@ -54,6 +54,12 @@ const char *Shaders::FRAG_RENDERFLUID =
 const char *Shaders::FRAG_BILATERALFILTER =
 #include "BilateralFilter.frag"
     ;
+const char *Shaders::FRAG_BILATERALFILTERVERT =
+#include "BilateralFilterVert.frag"
+    ;
+const char *Shaders::FRAG_BILATERALFILTERHORZ =
+#include "BilateralFilterHorz.frag"
+    ;
 const char *Shaders::COMP_NOISE3D =
 #include "Noise3D.comp"
     ;

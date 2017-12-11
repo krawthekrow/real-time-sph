@@ -20,5 +20,7 @@ public:
     static const char *FRAG_DRAWTEXTUREWITHDEPTH;
     static const char *FRAG_RENDERFLUID;
     static const char *FRAG_BILATERALFILTER;
+    static const char *FRAG_BILATERALFILTERVERT;
+    static const char *FRAG_BILATERALFILTERHORZ;
     static const char *COMP_NOISE3D;
 };
