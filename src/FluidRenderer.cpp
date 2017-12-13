@@ -283,7 +283,8 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glBindVertexArray(flatSphereVao);
     glDrawArrays(GL_POINTS, 0, numParts);
 
-    if (!GlobalDebugSwitches::smoothSwitch) {
+    GLuint smoothOutputTex = flatSphereDepthTex;
+    if (GlobalDebugSwitches::smoothMode == 0) {
         // SMOOTH
 
         glDepthFunc(GL_ALWAYS);
@@ -313,6 +314,26 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
         glBindTexture(GL_TEXTURE_2D, smoothVertDepthTex);
         glUniform1i(smoothHorzDepthTexLocation, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        smoothOutputTex = smoothHorzDepthTex;
+    }
+    else if (GlobalDebugSwitches::smoothMode == 1) {
+        glDepthFunc(GL_ALWAYS);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, smoothFbo1);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        glUseProgram(smoothProgram);
+        glBindVertexArray(smoothVao);
+        glUniform2fv(smoothQuadPosLocation, 1, &origin[0]);
+        glUniform2fv(smoothQuadDimsLocation, 1,
+            &viewportScreenRatio[0]);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, flatSphereDepthTex);
+        glUniform1i(smoothDepthTexLocation, 0);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        smoothOutputTex = smoothDepthTex1;
     }
 
     glDepthFunc(GL_LESS);
@@ -332,20 +353,16 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     glUniformMatrix4fv(renderMvLocation, 1, GL_FALSE,
         &mvMatrix[0][0]);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,
-        GlobalDebugSwitches::smoothSwitch ?
-        flatSphereDepthTex : smoothHorzDepthTex);
+    glBindTexture(GL_TEXTURE_2D, smoothOutputTex);
     glUniform1i(renderDepthTexLocation, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     glDisable(GL_BLEND);
 
     if (GlobalDebugSwitches::depthSwitch) {
-        texturedQuadRenderer.Update(
-            GlobalDebugSwitches::smoothSwitch ?
-            flatSphereDepthTex : smoothHorzDepthTex,
+        texturedQuadRenderer.Update(smoothOutputTex,
             vec2(0.0f), viewportScreenRatio,
-            -0.9992, 2000.0f);
+            -0.9992f, 2000.0f);
     }
 
     // glDisable(GL_STENCIL_TEST);

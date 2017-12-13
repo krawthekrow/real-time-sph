@@ -2,7 +2,8 @@
 
 class GlobalDebugSwitches {
 public:
-    static bool smoothSwitch;
+    static int smoothMode;
     static bool depthSwitch;
     static bool renderSwitch;
+    static float rotRate;
 };

@@ -9,7 +9,7 @@ uniform sampler2D depthTex;
 
 #define MSIZE 7
 #define SIGMA 7.0f
-#define FALLOFF 0.00004f
+#define SIGMA_DEPTH 0.00004f
 
 float getAdjDepth(vec2 texCoord, float dx, float dy) {
     vec2 newTexCoord = texCoord + vec2(dx, dy) / texDims;
@@ -19,18 +19,15 @@ float getAdjDepth(vec2 texCoord, float dx, float dy) {
 void main(){
     float depth = texture(depthTex, texCoord).r;
     if (depth == 1.0f) discard;
-    float sum = 0, wsum = 0;
+    float sum = 0.0f, wsum = 0.0f;
     for (int i = -MSIZE; i <= MSIZE; i++) {
         float samp = getAdjDepth(texCoord, 0, i);
-        if (samp == 1.0f) samp = depth;
         float r = i / SIGMA;
-        float w = exp(-r * r);
+        float rDepth = (samp - depth) / SIGMA_DEPTH;
+        float w = exp(-r * r - rDepth * rDepth);
 
-        float r2 = (samp - depth) / FALLOFF;
-        float g = exp(-r2 * r2);
-
-        sum += samp * w * g;
-        wsum += w * g;
+        sum += samp * w;
+        wsum += w;
     }
 
     if (wsum > 0.0f) {

@@ -1,5 +1,5 @@
 R"RAWSTR(
-#version 330 core
+#version 400 core
 
 in vec2 texCoord;
 out vec3 color;
@@ -7,9 +7,9 @@ out vec3 color;
 uniform vec2 texDims;
 uniform sampler2D depthTex;
 
-#define MSIZE 5
-#define SIGMA 3.0f
-#define FALLOFF 0.1f
+#define MSIZE 7
+#define SIGMA 7.0f
+#define SIGMA_DEPTH 0.00004f
 
 float getAdjDepth(vec2 texCoord, float dx, float dy) {
     vec2 newTexCoord = texCoord + vec2(dx, dy) / texDims;
@@ -19,19 +19,16 @@ float getAdjDepth(vec2 texCoord, float dx, float dy) {
 void main(){
     float depth = texture(depthTex, texCoord).r;
     if (depth == 1.0f) discard;
-    float sum = 0, wsum = 0;
+    double sum = 0.0f, wsum = 0.0f;
     for (int i = -MSIZE; i <= MSIZE; i++) {
         for (int j = -MSIZE; j <= MSIZE; j++) {
-            float samp = getAdjDepth(texCoord, i, j);
-            if (samp == 1.0f) samp = depth;
-            float r = length(vec2(i, j)) / SIGMA;
-            float w = exp(-r * r);
+            float samp = getAdjDepth(texCoord, j, i);
+            float r = length(vec2(j, i)) / SIGMA;
+            float rDepth = (samp - depth) / SIGMA_DEPTH;
+            float w = exp(-r * r - rDepth * rDepth);
 
-            float r2 = (samp - depth) / FALLOFF;
-            float g = exp(-r2 * r2);
-
-            sum += samp * w * g;
-            wsum += w * g;
+            sum += samp * w;
+            wsum += w;
         }
     }
 
@@ -39,7 +36,7 @@ void main(){
         sum /= wsum;
     }
 
-    gl_FragDepth = sum; // texture(depthTex, texCoord).r;
+    gl_FragDepth = float(sum); // texture(depthTex, texCoord).r;
 }
 )RAWSTR"
 

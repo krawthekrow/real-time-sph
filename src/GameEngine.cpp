@@ -86,8 +86,8 @@ void GameEngine::Update() {
     }
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_Z)) {
         if (!smoothTogglePressed) {
-            GlobalDebugSwitches::smoothSwitch =
-                !GlobalDebugSwitches::smoothSwitch;
+            GlobalDebugSwitches::smoothMode =
+                (GlobalDebugSwitches::smoothMode + 1) % 3;
             smoothTogglePressed = true;
         }
     } else {
@@ -110,6 +110,15 @@ void GameEngine::Update() {
         }
     } else {
         renderTogglePressed = false;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_V)) {
+        GlobalDebugSwitches::rotRate = 8.0f;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_B)) {
+        GlobalDebugSwitches::rotRate = 0.5f;
+    }
+    if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_G)) {
+        GlobalDebugSwitches::rotRate = 2.0f;
     }
     if (GlfwUtils::IsKeyPressed(window, GLFW_KEY_COMMA)) {
         if (!rotationTogglePressed) {

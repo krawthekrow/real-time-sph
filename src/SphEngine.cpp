@@ -6,13 +6,13 @@
 
 #include "ShaderManager.h"
 #include "Shaders.h"
+#include "GlobalDebugSwitches.h"
 
 #include "SphEngine.h"
 
 using namespace glm;
 
 const int NUM_PARTS = 3000;
-const float ROT_RATE = 2.0f;
 const float TIME_MULT = 500.0f;
 const float MAX_TIME_STEP = 1.0f;
 
@@ -117,7 +117,9 @@ void SphEngine::Update(
 
     if (!paused) {
         currTime += simTimeStep;
-        if (!rotationPaused) rotAmt += simTimeStep * ROT_RATE / TIME_MULT;
+        if (!rotationPaused)
+            rotAmt += simTimeStep * GlobalDebugSwitches::rotRate /
+                TIME_MULT;
         sphCuda.Update(simTimeStep, rotAmt);
     }
 
