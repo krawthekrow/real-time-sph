@@ -7,7 +7,6 @@
 #include "Camera.h"
 #include "CameraController.h"
 #include "FpsCounter.h"
-#include "ProcGenEngine.h"
 #include "SphEngine.h"
 
 using namespace std;
@@ -23,7 +22,6 @@ public:
 
 private:
     GLFWwindow *window;
-    ProcGenEngine procGenEngine;
     SphEngine sphEngine;
     FpsCounter fpsCounter;
 

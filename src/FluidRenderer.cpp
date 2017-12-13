@@ -2,10 +2,10 @@
 
 #include <glm/glm.hpp>
 
+#include "GlobalDebugSwitches.h"
 #include "ShaderManager.h"
 #include "Shaders.h"
 #include "TextureUtils.h"
-#include "GlobalDebugSwitches.h"
 
 #include "FluidRenderer.h"
 
@@ -26,7 +26,7 @@ GLuint FluidRenderer::createDepthTex(const vec2 &texDims) {
 }
 
 GLuint FluidRenderer::createDepthFbo(
-    const vec2 &texDims, GLuint& depthTex) {
+    const vec2 &texDims, GLuint &depthTex) {
 
     depthTex = createDepthTex(texDims);
 
@@ -48,7 +48,7 @@ GLuint FluidRenderer::createDepthFbo(
 void FluidRenderer::Init(
     const int &_numParts,
     const vec3 &_minBound, const vec3 &_maxBound,
-    GLfloat * const &initPos, GLfloat * const &initDensities,
+    GLfloat *const &initPos, GLfloat *const &initDensities,
     const float &_drawLimitZ) {
     numParts = _numParts;
     drawLimitZ = _drawLimitZ;
@@ -256,7 +256,8 @@ void FluidRenderer::Init(
 void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
     const {
 
-    if (GlobalDebugSwitches::renderSwitch) return;
+    if (GlobalDebugSwitches::renderSwitch)
+        return;
 
     vec2 viewportScreenRatio = vec2(
         TextureUtils::MAX_SCREEN_WIDTH,
@@ -316,8 +317,7 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         smoothOutputTex = smoothHorzDepthTex;
-    }
-    else if (GlobalDebugSwitches::smoothMode == 1) {
+    } else if (GlobalDebugSwitches::smoothMode == 1) {
         glDepthFunc(GL_ALWAYS);
 
         glBindFramebuffer(GL_FRAMEBUFFER, smoothFbo1);
@@ -364,8 +364,6 @@ void FluidRenderer::Update(const mat4 &mvMatrix, const mat4 &pMatrix)
             vec2(0.0f), viewportScreenRatio,
             -0.9992f, 2000.0f);
     }
-
-    // glDisable(GL_STENCIL_TEST);
 }
 
 void FluidRenderer::IncDrawLimitZ(const float &inc) {

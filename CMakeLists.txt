@@ -14,17 +14,15 @@ find_package (CUDA QUIET REQUIRED)
 cuda_add_executable (main
     src/main.cpp
     src/GlfwUtils.cpp
-    src/TextureUtils.cpp
-    src/GlobalDebugSwitches.cpp
-    src/TexturedQuadRenderer.cpp
+    src/CudaUtils.cpp
     src/ShaderManager.cpp
     src/Camera.cpp
-    src/FpsCounter.cpp
-    src/Shaders.cpp
     src/CameraController.cpp
-    src/CudaUtils.cpp
+    src/FpsCounter.cpp
+    src/TexturedQuadRenderer.cpp
+    src/Shaders.cpp
+    src/GlobalDebugSwitches.cpp
     src/GameEngine.cpp
-    src/ProcGenEngine.cpp
     src/SphEngine.cpp
     src/SphCuda.cu
     src/FluidRenderer.cpp

@@ -7,10 +7,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "GlfwUtils.h"
+#include "GlobalDebugSwitches.h"
 #include "ShaderManager.h"
 #include "Shaders.h"
 #include "TextureUtils.h"
-#include "GlobalDebugSwitches.h"
 
 #include "GameEngine.h"
 
@@ -35,7 +35,6 @@ void GameEngine::Init(GLFWwindow *_window) {
     cameraController = CameraController(_window, &camera);
     disableCursor();
 
-    // procGenEngine.Init();
     sphEngine.Init();
 
     GLint viewportParams[4];
@@ -60,7 +59,6 @@ void GameEngine::Update() {
     mat4 pMatrix = projectionMatrix;
     mat4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
-    // procGenEngine.Update(mvpMatrix);
     sphEngine.Update(mvMatrix, pMatrix, timeStep);
 
     cameraController.Update(timeStep);
@@ -148,8 +146,6 @@ void GameEngine::SetViewportDimensions(const int width, const int height) {
     projectionMatrix = perspective(
         radians(45.0f),
         (float)viewportDimensions[0] / (float)viewportDimensions[1],
-        // 100.0f, 200.0f);
-        // 0.1f, 10000.0f);
         0.1f, 1000.0f);
 
     sphEngine.SetViewportDimensions(viewportDimensions);

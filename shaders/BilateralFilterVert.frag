@@ -34,7 +34,7 @@ void main(){
         sum /= wsum;
     }
 
-    gl_FragDepth = sum; // texture(depthTex, texCoord).r;
+    gl_FragDepth = sum;
 }
 )RAWSTR"
 

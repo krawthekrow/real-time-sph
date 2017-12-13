@@ -1,9 +1,7 @@
-#include "ShaderManager.h"
-#include <GLFW/glfw3.h>
 #include <cstdio>
-#include <fstream>
-#include <string>
 #include <vector>
+
+#include "ShaderManager.h"
 
 using namespace std;
 

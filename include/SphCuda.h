@@ -33,6 +33,7 @@ private:
     vec3 *pos;
     vec3 *velocities;
     vec3 *contactForces;
+    vec3 *accels;
     float *densities;
 
     int *cellTouchHashes;
@@ -60,19 +61,12 @@ private:
     thrust::device_ptr<int> homeChunksPtr;
     thrust::device_ptr<bool> shouldCopyCollisionPtr;
 
-    vec3 *rk1dv;
-    vec3 *rk2p, *rk2v, *rk2dv;
-    vec3 *rk3p, *rk3v, *rk3dv;
-    vec3 *rk4p, *rk4v, *rk4dv;
-
-    curandState_t *randStates;
-
-    void computeAccelRK(
+    void computeAccel(
         vec3 *const currPos, vec3 *const currVel, vec3 *const currAccel,
         const double &t, const float &rotAmt,
         const mat4 &boundaryRotate, const mat4 &invBoundaryRotate,
         const vec3 &boundaryTranslate);
-    void advanceStateRK(
+    void advanceState(
         vec3 *const currPos, vec3 *const currVel, const float timeStep,
         vec3 *const dpos, vec3 *const dvel,
         vec3 *const destPos, vec3 *const destVel);

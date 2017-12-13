@@ -31,10 +31,7 @@ void main(){
 
     float fDensity = vDensity[0];
     fSize = clamp(
-        // pow(fDensity - 0.98f, 1.0f / 3.0f) * 1.0f,
-        // (pow(fDensity, 0.4f) - 1.0f) * 2.2f + 0.2f,
         (pow(fDensity, 0.2f) - 1.0f) * 30.0f + 0.8f,
-        // (pow(fDensity, 3.0f) - 1.0f) * 1.5f + 0.2f,
         0.0f, 2.0f);
     vec4 adjustedPos =
         P * (centerCameraSpace + vec4(0.0f, 0.0f, fSize, 0.0f));

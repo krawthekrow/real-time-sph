@@ -8,7 +8,6 @@ layout (depth_greater) out float gl_FragDepth;
 in vec2 posBillboardSpace;
 in vec4 posCameraSpace;
 in float fSize;
-// out vec4 color;
 
 uniform mat4 P;
 
@@ -24,8 +23,5 @@ void main(){
     float depth =
         (newPosScreenSpace.z / newPosScreenSpace.w + 1.0f) / 2.0f;
     gl_FragDepth = depth;
-    // color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    // gl_FragDepth = (depth - 0.99992) * 20000.0f;
-    // color = vec4(vec3(zAdjustSq / (fSize * fSize)), 1.0f);
 }
 )RAWSTR"

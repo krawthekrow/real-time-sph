@@ -4,9 +4,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
 
+#include "GlobalDebugSwitches.h"
 #include "ShaderManager.h"
 #include "Shaders.h"
-#include "GlobalDebugSwitches.h"
 
 #include "SphEngine.h"
 
@@ -17,7 +17,7 @@ const float TIME_MULT = 500.0f;
 const float MAX_TIME_STEP = 1.0f;
 
 SphEngine::SphEngine()
-    : paused(true),
+    : paused(false),
       rotationPaused(false),
       currTime(0.0),
       rotAmt(0.0f) {}
@@ -26,14 +26,10 @@ void SphEngine::Init() {
     minBound = vec3(-25.0f, -25.0f, -25.0f);
     maxBound = vec3(25.0f, 25.0f, 25.0f);
 
-    // glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-	// glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    // glClearColor(0.529f, 0.809f, 0.922f, 1.0f);
     glClearColor(0.4f, 0.7f, 0.9f, 1.0f);
 
-    GLfloat * const initPos = new GLfloat[NUM_PARTS * 3];
+    GLfloat *const initPos = new GLfloat[NUM_PARTS * 3];
     for (int i = 0; i < NUM_PARTS; i++) {
-        // vec3 pos = linearRand(minBound, maxBound);
         vec3 dims = maxBound - minBound;
         vec3 pos = linearRand(
             minBound,
@@ -43,7 +39,7 @@ void SphEngine::Init() {
         initPos[i * 3 + 2] = pos.z;
     }
 
-    GLfloat * const initDensities = new GLfloat[NUM_PARTS];
+    GLfloat *const initDensities = new GLfloat[NUM_PARTS];
     for (int i = 0; i < NUM_PARTS; i++) {
         initDensities[i] = 2.0f;
     }

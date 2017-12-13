@@ -48,19 +48,13 @@ void main(){
     bool lit = dot(lightDir, normal) > 0;
 
     float R0 = 0.133f;
-    // vec3 bgColor = vec3(0.529, 0.809, 0.922);
     float fresnel = mix(pow(1.0f - dot(viewDir, halfDir), 5.0f),
         1.0f, R0);
     float specular = pow(max(0.0f, dot(reflectDir, viewDir)), 3.0f);
-    float diffuse = max(0.0f, dot(normal, lightDir));
 	float lightCoeff = 6.0f;
     float lightAmt =
-        lit ? min(1.0f, 0.0f * diffuse +
-			lightCoeff * fresnel * specular) : 0.0f;
-    // color = mix(vec3(0.3f, 0.5f, 0.8f) * bgColor, vec3(1.0f), lightAmt);
+        lit ? min(1.0f, lightCoeff * fresnel * specular) : 0.0f;
     color = vec4(1.0f, 1.0f, 1.0f, lightAmt + 0.2f);
-    // color = normal;
-    // color = vec3((texture(depthTex, texCoord + vec2(1.0f, 0.0f) / texDims).r - 0.99992) * 20000.0f);
     gl_FragDepth = depth;
 }
 )RAWSTR"
